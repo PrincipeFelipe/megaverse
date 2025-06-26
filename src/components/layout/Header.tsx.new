@@ -1,0 +1,113 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
+import { User, LogOut, Settings } from '../../utils/icons';
+import { useAuth } from '../../contexts/AuthContext';
+import { Button } from '../ui/Button';
+import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
+
+export const Header: React.FC = () => {
+  const { user, logout } = useAuth();
+  const location = useLocation();
+
+  // Definir rutas de navegación basadas en autenticación
+  const navigation = [
+    { name: 'Inicio', href: '/', requiresAuth: false },
+    { name: 'Reservas', href: '/reservations', requiresAuth: true },
+    { name: 'Productos', href: '/products', requiresAuth: true },
+    { name: 'Mi Perfil', href: '/profile', requiresAuth: true },
+  ];
+
+  // Filtrar las rutas de navegación basadas en si el usuario está autenticado o no
+  const filteredNavigation = navigation.filter(item => 
+    !item.requiresAuth || (item.requiresAuth && user)
+  );
+
+  const isActive = (path: string) => location.pathname === path;
+
+  return (
+    <motion.header
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      className="bg-dark-700 border-b border-dark-600 sticky top-0 z-30"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2">
+            <img src="/images/logo.svg" alt="Megaverse Logo" className="w-8 h-8" />
+            <span className="text-xl font-bold text-white">MEGAVERSE</span>
+          </Link>
+
+          {/* Navigation */}
+          <nav className="hidden md:flex space-x-8">
+            {filteredNavigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(item.href)
+                    ? 'text-primary-400 bg-dark-800'
+                    : 'text-gray-300 hover:text-white hover:bg-dark-800'
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </nav>
+
+          {/* User Menu */}
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <div className="flex items-center space-x-3">
+                <Link to="/profile" className="flex items-center text-gray-300 text-sm hover:text-primary-400 transition-colors">
+                  {user.avatar_url ? (
+                    <div className="avatar avatar-header">
+                      <img 
+                        src={getAvatarUrl(user.avatar_url) || undefined}
+                        alt="Avatar" 
+                        onLoad={() => console.log('Avatar cargado exitosamente en Header')}
+                        onError={(e) => handleAvatarError(e.currentTarget)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="avatar avatar-header avatar-placeholder">
+                      <User className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
+                  Hola, <span className="font-semibold ml-1">{user.name}</span>
+                </Link>
+                <Link to="/dashboard">
+                  <Button variant="ghost" size="sm">
+                    <User className="w-4 h-4 mr-1" />
+                    Dashboard
+                  </Button>
+                </Link>
+                {user.role === 'admin' && (
+                  <Link to="/admin">
+                    <Button variant="ghost" size="sm">
+                      <Settings className="w-4 h-4 mr-1" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
+                <Button variant="ghost" size="sm" onClick={logout}>
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Salir
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <Link to="/auth">
+                  <Button variant="outline" size="sm">
+                    Iniciar Sesión
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.header>
+  );
+};

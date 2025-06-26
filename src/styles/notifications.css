@@ -1,0 +1,62 @@
+/* Estilos para tooltips y notificaciones */
+
+/* Tooltip para mostrar información adicional al hacer hover */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltip-text {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.tooltip .tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Estilos para modo oscuro */
+.dark .tooltip .tooltip-text {
+  background-color: #1e2330;
+  color: #e1e1e1;
+  border: 1px solid #2e3544;
+}
+
+.dark .tooltip .tooltip-text::after {
+  border-color: #1e2330 transparent transparent transparent;
+}
+
+/* Animaciones para notificaciones */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.notification-badge-pulse {
+  animation: pulse 2s infinite;
+}

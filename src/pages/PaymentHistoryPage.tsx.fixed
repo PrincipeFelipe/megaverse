@@ -1,0 +1,255 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { consumptionPaymentsService } from '../services/consumptionPaymentsService';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Table } from '../components/ui/Table';
+import { showError, showLoading, closeLoading } from '../utils/alerts';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { PayConsumptionsModal } from '../components/ui/PayConsumptionsModal';
+import { ConsumptionPayment } from '../services/consumptionPaymentsService';
+
+const PaymentHistoryPage: React.FC = () => {
+  const { /* user no se usa actualmente */ updateUserData } = useAuth();
+  const [debtInfo, setDebtInfo] = useState<{
+    currentDebt: number;
+    paymentHistory: ConsumptionPayment[];
+  }>({
+    currentDebt: 0,
+    paymentHistory: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Filtros para la tabla
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    paymentMethod: ''
+  });
+
+  useEffect(() => {
+    fetchDebtAndPayments();
+  }, []);
+
+  const fetchDebtAndPayments = async () => {
+    try {
+      setLoading(true);
+      showLoading('Cargando información de deuda y pagos...');
+      
+      const data = await consumptionPaymentsService.getUserDebt();
+      setDebtInfo(data);
+    } catch (error) {
+      console.error('Error al obtener información de deuda y pagos:', error);
+      showError('No se pudo cargar la información de deuda y pagos');
+    } finally {
+      closeLoading();
+      setLoading(false);
+    }
+  };
+  
+  const handlePaymentComplete = () => {
+    fetchDebtAndPayments();
+    updateUserData();
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "dd 'de' MMMM 'de' yyyy, HH:mm", { locale: es });
+    } catch {
+      return dateString || 'Fecha desconocida';
+    }
+  };
+  
+  const formatPaymentMethod = (method: string) => {
+    const methods: {[key: string]: string} = {
+      'efectivo': 'Efectivo',
+      'transferencia': 'Transferencia',
+      'bizum': 'Bizum'
+    };
+    return methods[method] || method;
+  };
+  
+  // Aplicar filtros a los pagos
+  const filteredPayments = debtInfo.paymentHistory.filter(payment => {
+    const matchStartDate = filters.startDate 
+      ? new Date(payment.payment_date) >= new Date(filters.startDate) 
+      : true;
+    
+    const matchEndDate = filters.endDate 
+      ? new Date(payment.payment_date) <= new Date(new Date(filters.endDate).setHours(23, 59, 59)) 
+      : true;
+    
+    const matchMethod = filters.paymentMethod 
+      ? payment.payment_method === filters.paymentMethod 
+      : true;
+    
+    return matchStartDate && matchEndDate && matchMethod;
+  });
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Historial de Pagos de Consumiciones
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Visualiza y gestiona tus pagos de consumiciones
+          </p>
+        </div>
+        
+        {debtInfo.currentDebt > 0 && (
+          <div className="mt-4 md:mt-0">
+            <Button onClick={() => setShowPaymentModal(true)}>
+              Pagar Consumiciones
+            </Button>
+          </div>
+        )}
+      </div>
+      
+      <Card className="mb-8 overflow-hidden">
+        <div className="p-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Deuda Actual
+            </h2>
+            <p className="text-3xl font-bold">
+              {debtInfo.currentDebt > 0 ? (
+                <span className="text-red-600">€{debtInfo.currentDebt.toFixed(2)}</span>
+              ) : (
+                <span className="text-green-600">€0.00</span>
+              )}
+            </p>
+          </div>
+          <div>
+            {debtInfo.currentDebt > 0 ? (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="mb-2">Tienes una deuda pendiente por consumiciones realizadas.</p>
+                <Button 
+                  size="sm"
+                  onClick={() => setShowPaymentModal(true)}
+                >
+                  Realizar Pago
+                </Button>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                <p>No tienes deuda pendiente. ¡Todo al día!</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+      
+      <Card className="mb-8">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Filtrar Pagos
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Fecha Inicio
+              </label>
+              <input
+                type="date"
+                id="startDate"
+                value={filters.startDate}
+                onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+                className="block w-full py-2 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+            <div>
+              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Fecha Fin
+              </label>
+              <input
+                type="date"
+                id="endDate"
+                value={filters.endDate}
+                onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+                className="block w-full py-2 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+            <div>
+              <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Método de Pago
+              </label>
+              <select
+                id="paymentMethod"
+                value={filters.paymentMethod}
+                onChange={(e) => setFilters({...filters, paymentMethod: e.target.value})}
+                className="block w-full py-2 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="">Todos</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="bizum">Bizum</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button 
+              variant="outline"
+              onClick={() => setFilters({startDate: '', endDate: '', paymentMethod: ''})}
+              className="mr-2"
+            >
+              Limpiar Filtros
+            </Button>
+          </div>
+        </div>
+      </Card>
+      
+      <Card>
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="py-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Cargando pagos...</p>
+            </div>
+          ) : filteredPayments.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-gray-600 dark:text-gray-400">No hay pagos registrados.</p>
+            </div>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Fecha</th>
+                  <th>Monto</th>
+                  <th>Método de Pago</th>
+                  <th>Referencia</th>
+                  <th>Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPayments.map((payment) => (
+                  <tr key={payment.id}>
+                    <td>{payment.id}</td>
+                    <td>{formatDate(payment.payment_date)}</td>
+                    <td className="font-semibold">€{parseFloat(payment.amount.toString()).toFixed(2)}</td>
+                    <td>{formatPaymentMethod(payment.payment_method)}</td>
+                    <td>{payment.reference_number || '-'}</td>
+                    <td>{payment.notes || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </div>
+      </Card>
+      
+      {/* Modal para pagar consumiciones */}
+      <PayConsumptionsModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPaymentComplete={handlePaymentComplete}
+      />
+    </div>
+  );
+};
+
+export default PaymentHistoryPage;

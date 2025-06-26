@@ -1,0 +1,62 @@
+.dst-warning {
+  display: flex;
+  align-items: flex-start;
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-left: 4px solid #ffc107;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.warning-icon {
+  font-size: 1.5rem;
+  margin-right: 1rem;
+}
+
+.warning-content {
+  flex-grow: 1;
+}
+
+.warning-content h4 {
+  margin-top: 0;
+  color: #856404;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.warning-content p {
+  margin-bottom: 0.5rem;
+  color: #6c757d;
+}
+
+.hour-issue {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #721c24 !important;
+}
+
+/* Versión más destacada para problemas críticos (día del cambio) */
+.dst-warning.critical {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-left: 4px solid #dc3545;
+}
+
+.dst-warning.critical h4 {
+  color: #721c24;
+}
+
+/* Estilos de animación para captar la atención */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.dst-warning.critical .warning-icon {
+  animation: pulse 1s infinite;
+}

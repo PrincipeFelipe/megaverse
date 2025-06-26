@@ -1,0 +1,174 @@
+/* Estilos personalizados para FullCalendar */
+
+/* Estilización general del calendario */
+.fc {
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --fc-border-color: rgba(0, 0, 0, 0.1);
+  --fc-page-bg-color: transparent;
+  --fc-event-border-color: transparent;
+  --fc-neutral-bg-color: rgba(208, 208, 208, 0.1);
+  --fc-today-bg-color: rgba(61, 90, 254, 0.08);
+}
+
+/* Modo oscuro */
+.dark .fc {
+  --fc-border-color: rgba(255, 255, 255, 0.15);
+  --fc-neutral-bg-color: rgba(255, 255, 255, 0.05);
+  --fc-today-bg-color: rgba(98, 126, 255, 0.15);
+  color: #e0e0e0;
+}
+
+/* Cabecera del calendario */
+.fc .fc-toolbar {
+  margin-bottom: 1.2rem !important;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0 0.5rem;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.25rem !important;
+  font-weight: 600;
+}
+
+/* Botones del calendario */
+.fc .fc-button-primary {
+  background-color: #4f46e5 !important;
+  border-color: #4338ca !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.dark .fc .fc-button-primary {
+  background-color: #5851ec !important;
+  border-color: #4f46e5 !important;
+}
+
+.fc .fc-button-primary:hover {
+  background-color: #4338ca !important;
+  border-color: #3730a3 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.fc .fc-button-primary:disabled {
+  background-color: #9ca3af !important;
+  border-color: #6b7280 !important;
+}
+
+/* Celdas y eventos */
+.fc-day-today {
+  background-color: var(--fc-today-bg-color) !important;
+}
+
+/* Estilizar evento cuando es una reserva propia y activa */
+.fc-event.user-reservation {
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transform: scale(1);
+}
+
+.fc-event.user-reservation:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transform: scale(1.02);
+  z-index: 5;
+}
+
+/* Asegurar que los eventos ocupen bien el espacio */
+.fc-event {
+  margin: 1px 2px !important;
+  padding: 1px !important;
+  border-radius: 6px !important;
+}
+
+.fc-event-main {
+  padding: 3px !important;
+}
+
+.fc-event-main-content {
+  overflow: hidden;
+}
+
+/* Personalizar la barra de tiempo */
+.fc-timegrid-slot {
+  height: 3.5em !important;
+}
+
+.fc-timegrid-slot-label-cushion {
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.dark .fc-timegrid-slot-label-cushion {
+  color: #9ca3af;
+}
+
+/* Cambiar el cursor para señalar que se pueden hacer reservas */
+.fc-timegrid-col:not(.fc-day-past):not(.fc-day-disabled),
+.fc-daygrid-day:not(.fc-day-past):not(.fc-day-disabled) {
+  cursor: pointer;
+}
+
+/* Mejorar el indicador de hora actual */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #dc2626;
+  border-width: 2px;
+  z-index: 4;
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #dc2626;
+  border-width: 5px;
+  z-index: 4;
+}
+
+/* Hacer que el selector de mesas se vea bien */
+.table-selection-popover {
+  width: 280px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  border-radius: 0.5rem;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Transiciones suaves */
+.fc-event, .fc-button, .fc-view, .fc-view-harness {
+  transition: all 0.2s ease;
+}
+
+/* Mejoras en la vista de días */
+.fc-day-header {
+  padding: 8px 0 !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.025em;
+}
+
+/* Hora del día */
+.fc-timegrid-axis-cushion {
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.dark .fc-timegrid-axis-cushion {
+  color: #9ca3af;
+}
+
+/* Estilo para las vistas inactivas */
+.fc-day-past {
+  opacity: 0.75;
+}
+
+/* Mejorar el estilo para días de fin de semana */
+.fc-day-sat, .fc-day-sun {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dark .fc-day-sat, .dark .fc-day-sun {
+  background-color: rgba(255, 255, 255, 0.02);
+}

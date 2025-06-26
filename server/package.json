@@ -1,0 +1,30 @@
+{
+  "name": "megaverse-server",
+  "version": "1.0.0",
+  "description": "Backend server for Megaverse application",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "init-db": "node scripts/initDb.js",
+    "fix-reservations": "node scripts/fixReservationTimeZones.js",
+    "fix-timezone-display": "node scripts/correctTimeZoneDisplayError.js",
+    "validate-timezone": "node scripts/validateTimezoneSolution.js",
+    "check-dst": "node scripts/dstTransitionMonitor.js",
+    "dst-test": "node -r esm -e \"require('./src/utils/dstTransitionTest').testDSTTransitions()\""
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1",
+    "mysql2": "^3.9.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}

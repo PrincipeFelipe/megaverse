@@ -1,0 +1,82 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AuthContextType, User } from '../types';
+import { authService } from '../services/api';
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        try {
+          const userData = await authService.getProfile();
+          setUser(userData);
+          setToken(storedToken);
+        } catch (error) {
+          console.error('Auth verification failed:', error);
+          localStorage.removeItem('token');
+          setToken(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    initAuth();
+  }, []);
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const data = await authService.login(email, password);
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem('token', data.token);
+      return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
+    }
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<boolean> => {
+    try {
+      const data = await authService.register(name, email, password);
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem('token', data.token);
+      return true;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      return false;
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+  };
+
+  const value: AuthContextType = {
+    user,
+    token,
+    login,
+    logout,
+    register,
+    loading,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

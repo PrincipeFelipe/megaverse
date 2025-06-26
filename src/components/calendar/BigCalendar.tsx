@@ -1,0 +1,354 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Calendar, Views, momentLocalizer, SlotInfo, View } from 'react-big-calendar';
+import moment from 'moment';
+import 'moment/locale/es';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import './calendar-styles.css'; // Estilos personalizados
+import { Reservation, Table } from '../../types';
+import { extractLocalTime } from '../../utils/dateUtils';
+import { useAuth } from '../../contexts/AuthContext';
+import Next7DaysView from './Next7DaysView';
+
+// Configurar el localizer con moment
+moment.locale('es');
+
+// Configurar Moment para tratar todas las fechas como locales (no UTC)
+// Esto asegura que react-big-calendar interprete correctamente las horas
+moment.updateLocale('es', {
+  week: {
+    dow: 1, // Lunes es el primer día de la semana
+    doy: 4  // La semana que contiene Jan 4th es la primera semana del año
+  },
+  months: 'enero_febrero_marzo_abril_mayo_junio_julio_agosto_septiembre_octubre_noviembre_diciembre'.split('_'),
+  monthsShort: 'ene_feb_mar_abr_may_jun_jul_ago_sep_oct_nov_dic'.split('_'),
+  weekdays: 'domingo_lunes_martes_miércoles_jueves_viernes_sábado'.split('_'),
+  weekdaysShort: 'dom_lun_mar_mié_jue_vie_sáb'.split('_'),
+  weekdaysMin: 'do_lu_ma_mi_ju_vi_sá'.split('_')
+});
+
+// Crear el localizador sin ajuste de zona horaria
+const localizer = momentLocalizer(moment);
+
+// Definir nombre para la vista personalizada
+const NEXT_7_DAYS = 'next7Days';
+
+// Añadir la vista personalizada al objeto Views
+const CustomViews = {
+  ...Views,
+  NEXT_7_DAYS
+};
+
+
+
+interface BigCalendarProps {
+  reservations: Reservation[];
+  tables: Table[];
+  onSelectSlot: (tableId: number, start: Date, end: Date) => void;
+  onCancelReservation: (id: number) => Promise<void>;
+}
+
+interface CalendarEvent {
+  id: number;
+  title: string;
+  start: Date;
+  end: Date;
+  tableId: number;
+  userId: number;
+  isAllDay: boolean;
+  status: 'active' | 'cancelled' | 'completed';
+  resource?: Table;
+}
+
+interface TableSelectionPopoverProps {
+  tables: Table[];
+  slotInfo: SlotInfo;
+  onSelectTable: (tableId: number, start: Date, end: Date) => void;
+  onClose: () => void;
+  position: { top: number; left: number };
+}
+
+// Componente para seleccionar mesa
+const TableSelectionPopover: React.FC<TableSelectionPopoverProps> = ({ 
+  tables, 
+  slotInfo, 
+  onSelectTable,
+  onClose,
+  position
+}) => {
+  return (
+    <div 
+      className="table-selection-popover fixed z-50" 
+      style={{ top: position.top, left: position.left }}
+    >
+      <div className="font-medium mb-2">Selecciona una mesa:</div>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {tables.map(table => (
+          <div 
+            key={table.id}
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+            onClick={() => {
+              onSelectTable(table.id, new Date(slotInfo.start), new Date(slotInfo.end));
+              onClose();
+            }}
+          >
+            <div className="font-medium">{table.name}</div>
+            {table.description && (
+              <div className="text-xs text-gray-600 dark:text-gray-400">{table.description}</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <button 
+        className="mt-3 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+        onClick={onClose}
+      >
+        Cancelar
+      </button>
+    </div>
+  );
+};
+
+const BigCalendar: React.FC<BigCalendarProps> = ({
+  reservations,
+  tables,
+  onSelectSlot,
+  onCancelReservation
+}) => {
+  const { user } = useAuth();
+  const [view, setView] = useState<string>(NEXT_7_DAYS); // Usar la vista personalizada como predeterminada
+  const [date, setDate] = useState<Date>(new Date());
+  const [showTableSelector, setShowTableSelector] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
+  const calendarRef = useRef<HTMLDivElement>(null);
+    // Efecto para forzar que la vista personalizada comience desde hoy
+  useEffect(() => {
+    // Si estamos en la vista personalizada, ajustar la fecha para que el rango comience desde hoy
+    if (view === NEXT_7_DAYS) {
+      setDate(new Date());
+    }
+  }, [view]);
+  
+  // Convertir reservas al formato esperado por el calendario
+  const events: CalendarEvent[] = reservations.map(reservation => {
+    // Extraer horas locales de las fechas ISO
+    const start = extractLocalTime(reservation.start_time);
+    const end = extractLocalTime(reservation.end_time);
+    
+    // Información detallada de depuración para verificar las fechas
+    console.log(`----- RESERVA ID: ${reservation.id} -----`);
+    console.log(`Estado de la reserva: ${reservation.status}`);
+    console.log(`ISO Inicio: ${reservation.start_time}`);
+    console.log(`ISO Fin: ${reservation.end_time}`);
+    console.log(`Local Inicio: ${start.toLocaleString()} (${start.getHours()}:${start.getMinutes()})`);
+    console.log(`Local Fin: ${end.toLocaleString()} (${end.getHours()}:${end.getMinutes()})`);
+    console.log(`Duración: ${(end.getTime() - start.getTime()) / (1000 * 60 * 60)} horas`);
+    
+    // Obtener la información de la mesa
+    const table = tables.find(t => t.id === reservation.table_id);
+      return {
+      id: reservation.id,
+      title: table ? `${table.name} ${reservation.user_id === user?.id ? '(Tu reserva)' : ''}` : 'Reserva',
+      start,
+      end,
+      tableId: reservation.table_id,
+      userId: reservation.user_id,
+      isAllDay: reservation.all_day,
+      status: reservation.status,
+      resource: table
+    };
+  });
+
+  // Función para manejar la selección de un espacio en el calendario
+  const handleSelectSlot = (slotInfo: SlotInfo) => {
+    if (!user) {
+      // Redireccionar a login si no hay usuario autenticado
+      window.location.href = '/auth';
+      return;
+    }
+      // Si estamos en la vista de mes, cambiar a la vista de día en lugar de abrir el selector de mesa
+    if (view === 'month') {
+      setDate(new Date(slotInfo.start));
+      setView('day');
+      return;
+    }
+    
+    // Si hay más de una mesa, mostrar el selector
+    if (tables.length > 1) {
+      setSelectedSlot(slotInfo);
+      
+      // Calcular posición para el popover
+      if (calendarRef.current) {
+        // En dispositivos táctiles no tendremos box, así que posicionamos en el centro
+        const x = window.innerWidth / 2 - 125;
+        const y = window.innerHeight / 2 - 150;
+        
+        setPopoverPosition({
+          left: Math.min(x, window.innerWidth - 260),
+          top: Math.min(y, window.innerHeight - 300)
+        });
+      }
+      
+      setShowTableSelector(true);
+    } else if (tables.length === 1) {
+      // Si solo hay una mesa, seleccionarla directamente
+      const tableId = tables[0].id;
+      const start = new Date(slotInfo.start);
+      const end = new Date(slotInfo.end);
+      onSelectSlot(tableId, start, end);
+    }
+  };
+
+  // Manejar la selección de mesa
+  const handleTableSelect = (tableId: number, start: Date, end: Date) => {
+    onSelectSlot(tableId, start, end);
+  };
+
+  // Personalizar la apariencia del evento
+  const eventStyleGetter = (event: CalendarEvent) => {
+    const isUserReservation = event.userId === user?.id;
+    const isAllDay = event.isAllDay;
+    const status = event.status;
+    
+    // Base color según el propietario de la reserva y si es todo el día
+    let baseColor = isUserReservation 
+      ? isAllDay ? '#9c27b0' : '#3788d8' 
+      : isAllDay ? '#9c27b0' : '#e74c3c';
+      
+    // Ajustar color según el estado
+    if (status === 'cancelled') {
+      baseColor = '#8a8a8a'; // Gris para reservas canceladas
+    } else if (status === 'completed') {
+      baseColor = '#4caf50'; // Verde para reservas completadas
+    }
+    
+    const style = {
+      backgroundColor: baseColor,
+      color: '#ffffff',
+      border: '0px',
+      borderRadius: '6px',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+      opacity: status === 'active' ? 0.9 : 0.7, // Las reservas no activas aparecen más transparentes
+    };
+    
+    return {
+      style,
+    };
+  };
+
+  // Personalizar la vista del evento
+  const EventComponent = ({ event }: { event: CalendarEvent }) => {
+    const isUserReservation = event.userId === user?.id;
+    
+    // Formatear horas con padding de ceros y asegurar que se muestra la hora correcta (formato 24h español)
+    const formatHour = (date: Date) => {
+      // Asegurarnos de que la hora se muestra correctamente con dos dígitos en formato 24h
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    };
+    
+    return (
+      <div className="rbc-event-content">
+        <div className="font-medium text-white" style={{ textShadow: '0 1px 1px rgba(0,0,0,0.3)' }}>
+          {event.title}
+          {isUserReservation && <span className="ml-1 text-xs">(Tu reserva)</span>}
+        </div>          
+        <div className="text-xs mt-1 text-white font-medium" style={{ opacity: 0.9 }}>
+          {formatHour(event.start)} - {formatHour(event.end)} h
+        </div>
+        {/* Mostrar un indicador del estado de la reserva */}
+        <div className="text-xs mt-1 font-medium">
+          {event.status === 'cancelled' && (
+            <span className="text-red-200">Cancelada</span>
+          )}
+          {event.status === 'completed' && (
+            <span className="text-blue-200">Completada</span>
+          )}
+        </div>
+        
+        {/* Solo permitir cancelar reservas activas propias */}
+        {isUserReservation && event.status === 'active' && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancelReservation(event.id);
+            }}
+            className="reservation-cancel-btn"
+            aria-label="Cancelar reserva"
+            title="Cancelar esta reserva"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+    );
+  };  // La función de rango personalizado ya no es necesaria ya que usamos otro enfoque
+
+  return (
+    <div className="h-[600px]" ref={calendarRef}>      <Calendar
+        localizer={localizer}
+        events={events}
+        startAccessor="start"
+        endAccessor="end"
+        defaultView={NEXT_7_DAYS}
+        views={{
+          month: true,
+          week: true,
+          day: true,
+          [NEXT_7_DAYS]: Next7DaysView
+        }}
+        step={60}
+        timeslots={1}
+        min={new Date(0, 0, 0, 8, 0)} // Desde las 8:00
+        max={new Date(0, 0, 0, 22, 0)} // Hasta las 22:00
+        formats={{
+          timeGutterFormat: date => moment(date).format('HH:mm') + ' h',
+          eventTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')} h`,
+          dayRangeHeaderFormat: ({ start, end }) => `${moment(start).format('D MMM')} — ${moment(end).format('D MMM')}`,
+          dayFormat: date => moment(date).format('ddd D'),
+          weekdayFormat: date => moment(date).format('dddd'),
+          monthHeaderFormat: date => moment(date).format('MMMM YYYY'),
+          dayHeaderFormat: date => moment(date).format('dddd, D [de] MMMM [de] YYYY')
+        }}
+        onSelectSlot={handleSelectSlot}
+        selectable
+        popup
+        eventPropGetter={eventStyleGetter}
+        components={{
+          event: EventComponent
+        }}
+        date={date}
+        onNavigate={date => setDate(date)}        view={view as View}
+        onView={(newView) => setView(newView)}
+        // length debería ser un número, no un objeto        messages={{
+          next: "Siguiente",
+          previous: "Anterior",
+          today: "Hoy",
+          month: "Mes",
+          week: "Semana",
+          day: "Día",
+          [NEXT_7_DAYS]: "Próximos 7 días", // Texto para nuestra vista personalizada
+          noEventsInRange: "No hay reservas en este período",
+          showMore: (total: number) => `+ ${total} más`,
+          allDay: "Todo el día",
+          date: "Fecha",
+          time: "Hora",          
+          event: "Evento"
+        }}
+        className="rounded-lg overflow-hidden"        // Aplicamos una solución más simple para conseguir el efecto deseado
+        getNow={() => new Date()} // Siempre usar la fecha actual
+      />
+      
+      {showTableSelector && selectedSlot && (
+        <TableSelectionPopover
+          tables={tables}
+          slotInfo={selectedSlot}
+          onSelectTable={handleTableSelect}
+          onClose={() => setShowTableSelector(false)}
+          position={popoverPosition}
+        />
+      )}
+    </div>
+  );
+};
+
+export default BigCalendar;

@@ -1,0 +1,163 @@
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { consumptionPaymentsService } from '../services/consumptionPaymentsService';
+
+export type NotificationType = 'info' | 'warning' | 'error';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  read: boolean;
+  url?: string;
+  createdAt: Date;
+  dismissible?: boolean;
+  data?: Record<string, unknown>;
+}
+
+interface NotificationContextType {
+  notifications: Notification[];
+  unreadCount: number;
+  addNotification: (notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
+  removeNotification: (id: string) => void;
+  clearAll: () => void;
+  hasRejectedPayments: boolean;
+  refreshRejectedPaymentsStatus: () => Promise<void>;
+}
+
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+
+export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [hasRejectedPayments, setHasRejectedPayments] = useState(false);
+  const { user } = useAuth();
+
+  // Definir la función de añadir notificación antes de usarla
+  const addNotification = (notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: Math.random().toString(36).substring(2, 11),
+      read: false,
+      createdAt: new Date(),
+    };
+
+    setNotifications((prev) => [newNotification, ...prev]);
+  };
+
+  // Definir checkForRejectedPayments antes de usarlo en useEffect
+  const checkForRejectedPayments = async () => {
+    if (!user) return;
+
+    try {
+      // Comprobar si hay pagos rechazados
+      const response = await consumptionPaymentsService.getPaymentHistory({
+        status: 'rechazado'
+      });
+      
+      if (response.payments && response.payments.length > 0) {
+        setHasRejectedPayments(true);
+        
+        // Verificar si ya existe una notificación similar
+        const notificationExists = notifications.some(n => 
+          n.type === 'error' && 
+          n.title === 'Pago rechazado' && 
+          n.url === '/payments/history'
+        );
+        
+        if (!notificationExists) {
+          // Crear notificación para el pago rechazado
+          addNotification({
+            type: 'error',
+            title: 'Pago rechazado',
+            message: `Tienes ${response.payments.length > 1 ? response.payments.length + ' pagos rechazados' : 'un pago rechazado'}. Revisa tu historial de pagos.`,
+            url: '/payments/history',
+            dismissible: false,
+            data: {
+              rejectedCount: response.payments.length
+            }
+          });
+        }
+      } else {
+        setHasRejectedPayments(false);
+        
+        // Eliminar notificaciones de pagos rechazados si ya no hay
+        setNotifications(prev => 
+          prev.filter(n => !(n.type === 'error' && n.title === 'Pago rechazado' && n.url === '/payments/history'))
+        );
+      }
+    } catch (error) {
+      console.error('Error al comprobar pagos rechazados:', error);
+    }
+  };
+  
+  // Función pública para actualizar el estado de pagos rechazados
+  const refreshRejectedPaymentsStatus = async () => {
+    await checkForRejectedPayments();
+  };
+
+  // Ahora usamos la función en el useEffect
+  useEffect(() => {
+    if (user) {
+      checkForRejectedPayments();
+    } else {
+      setHasRejectedPayments(false);
+      // Limpiar notificaciones relacionadas con pagos cuando el usuario se desconecta
+      setNotifications(prev => prev.filter(n => !(n.url === '/payments/history')));
+    }
+  }, [user, notifications.length]); // Añadimos notifications.length para que se actualice cuando cambie
+
+  const markAsRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === id ? { ...notification, read: true } : notification
+      )
+    );
+  };
+
+  const markAllAsRead = () => {
+    setNotifications((prev) =>
+      prev.map((notification) => ({ ...notification, read: true }))
+    );
+  };
+
+  const removeNotification = (id: string) => {
+    setNotifications((prev) =>
+      prev.filter((notification) => notification.id !== id)
+    );
+  };
+
+  const clearAll = () => {
+    setNotifications([]);
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        addNotification,
+        markAsRead,
+        markAllAsRead,
+        removeNotification,
+        clearAll,
+        hasRejectedPayments,
+        refreshRejectedPaymentsStatus
+      }}
+    >
+      {children}
+    </NotificationContext.Provider>
+  );
+};
+
+export const useNotifications = () => {
+  const context = useContext(NotificationContext);
+  if (context === undefined) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
+  return context;
+};

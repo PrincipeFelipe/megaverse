@@ -1,0 +1,166 @@
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { pool } from '../config/database.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+export const register = async (req, res) => {
+  const { name, username, email, password } = req.body;
+  
+  if (!name || !username || !password) {
+    return res.status(400).json({ error: 'Se requieren todos los campos obligatorios' });
+  }
+  
+  try {
+    const connection = await pool.getConnection();
+    
+    // Verificar si el nombre de usuario ya está en uso
+    const [existingUsernames] = await connection.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+    
+    if (existingUsernames.length > 0) {
+      connection.release();
+      return res.status(400).json({ error: 'El nombre de usuario ya está registrado' });
+    }
+    
+    // Verificar si el email ya está en uso (si se proporciona)
+    if (email) {
+      const [existingEmails] = await connection.query(
+        'SELECT * FROM users WHERE email = ?',
+        [email]
+      );
+      
+      if (existingEmails.length > 0) {
+        connection.release();
+        return res.status(400).json({ error: 'El email ya está registrado' });
+      }
+    }
+    
+    // Encriptar la contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Insertar el nuevo usuario
+    const [result] = await connection.query(
+      'INSERT INTO users (name, username, email, password) VALUES (?, ?, ?, ?)',
+      [name, username, email || null, hashedPassword]
+    );
+    
+    // Obtener el usuario recién creado
+    const [users] = await connection.query(
+      'SELECT id, name, username, email, role, balance, created_at FROM users WHERE id = ?',
+      [result.insertId]
+    );
+    
+    connection.release();
+    
+    const user = users[0];
+    
+    // Generar token JWT
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    return res.status(201).json({
+      message: 'Usuario registrado correctamente',
+      user,
+      token
+    });
+    
+  } catch (error) {
+    console.error('Error en el registro:', error);
+    return res.status(500).json({ error: 'Error del servidor al registrar usuario' });
+  }
+};
+
+export const login = async (req, res) => {
+  const { username, password } = req.body;
+  
+  console.log('Intento de login - datos recibidos:', { username: username || 'no proporcionado', passwordProvided: !!password });
+  
+  if (!username || !password) {
+    console.log('Devolviendo error por falta de username o password');
+    return res.status(400).json({ error: 'Nombre de usuario y contraseña son requeridos' });
+  }
+  
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    
+    // Buscar usuario por nombre de usuario
+    const [users] = await connection.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+    
+    if (users.length === 0) {
+      return res.status(401).json({ error: 'Nombre de usuario o contraseña incorrectos' });
+    }
+    
+    const user = users[0];
+    
+    // Comparar contraseñas
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Nombre de usuario o contraseña incorrectos' });
+    }
+    
+    // Datos del usuario sin la contraseña
+    const userData = {
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      balance: user.balance,
+      createdAt: user.created_at
+    };
+    
+    // Generar token JWT
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    return res.json({
+      user: userData,
+      token
+    });
+    
+  } catch (error) {
+    console.error('Error en el login:', error);
+    return res.status(500).json({ error: 'Error del servidor al iniciar sesión' });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+export const getMe = async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    
+    // Buscar usuario por ID (del token)
+    const [users] = await connection.query(
+      'SELECT id, name, username, email, role, balance, created_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    
+    connection.release();
+    
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    return res.status(200).json(users[0]);
+    
+  } catch (error) {
+    console.error('Error al obtener datos del usuario:', error);
+    return res.status(500).json({ error: 'Error del servidor al obtener datos del usuario' });
+  }
+};

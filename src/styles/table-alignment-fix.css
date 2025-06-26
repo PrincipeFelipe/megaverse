@@ -1,0 +1,32 @@
+/* Mejoras adicionales para la alineación en tablas */
+
+/* Estilo para centrar columnas de acción */
+.action-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+}
+
+/* Mejora para el espaciado en dispositivos pequeños */
+@media (max-width: 640px) {
+  .action-cell {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  /* Ajustar el ancho del botón en móviles para que sea consistente */
+  .action-cell button,
+  .action-cell .tooltip-rejection {
+    width: 100%;
+    max-width: 160px;
+  }
+}
+
+/* Asegura que los botones y tooltips tengan el mismo tamaño */
+.tooltip-rejection {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}

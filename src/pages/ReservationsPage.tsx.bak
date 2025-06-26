@@ -1,0 +1,576 @@
+// filepath: d:\00 - DISEÑO\06 - Varios\Asociación\web\01 - Proyecto1\src\pages\ReservationsPage.tsx
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Calendar, Clock, Users, List } from '../utils/icons';
+import { useAuth } from '../contexts/AuthContext';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
+import { Table, Reservation } from '../types';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { tableService, reservationService } from '../services/api';
+import { showSuccess, showError, showConfirm, showLoading, closeLoading } from '../utils/alerts';
+import { preserveLocalTime } from '../utils/dateUtils';
+import BigCalendar from '../components/calendar/BigCalendar';
+import ReservationsList from '../components/calendar/ReservationsList';
+import { testHoursVisualization } from '../utils/hourVisualizationTest';
+
+// Tipo para errores de API
+type ApiError = {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+  message?: string;
+  error?: string;
+};
+
+export const ReservationsPage: React.FC = () => {
+  const { user } = useAuth();
+  const [tables, setTables] = useState<Table[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);  
+  const [showModal, setShowModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [reservationToEdit, setReservationToEdit] = useState<Reservation | null>(null);
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{
+    tableId: number;
+    start: Date;
+    end: Date;
+  } | null>(null);
+  const [numMembers, setNumMembers] = useState<number>(1);
+  const [numGuests, setNumGuests] = useState<number>(0);
+  const [allDayReservation, setAllDayReservation] = useState<boolean>(false);
+  const [reservationReason, setReservationReason] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar'); // Estado para el modo de vista
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Obtener mesas y reservas de la API
+        const tablesData = await tableService.getAllTables();
+        setTables(tablesData);
+        
+        const reservationsData = await reservationService.getAllReservations();
+        setReservations(reservationsData);
+        
+        // Ejecutar prueba de visualización de horas
+        console.log("Ejecutando prueba de visualización de horas:");
+        const testResult = testHoursVisualization();
+        console.log("Resultado final de la prueba:", testResult);
+      } catch (error: unknown) {
+        console.error('Error al cargar datos:', error);
+        setError('Error al cargar los datos de reservas. Por favor, inténtalo de nuevo.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleSelectSlot = (tableId: number, start: Date, end: Date) => {
+    if (!user) {
+      // Redireccionar a login si no hay usuario autenticado
+      window.location.href = '/auth';
+      return;
+    }
+    
+    // Restablecer valores por defecto
+    setNumMembers(1);
+    setNumGuests(0);
+    setAllDayReservation(false);
+    setReservationReason('');
+    
+    setSelectedSlot({ tableId, start, end });
+    setShowModal(true);
+  };
+
+  const handleMakeReservation = async () => {
+    if (!selectedSlot || !user) return;
+    
+    if (allDayReservation && !reservationReason) {
+      showError('Error', 'Debes proporcionar una justificación para reservas de todo el día.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      showLoading('Creando reserva...');
+      
+      // Usamos directamente las fechas de inicio y fin seleccionadas
+      const startDate = new Date(selectedSlot.start);
+      let endDate: Date;
+      
+      if (allDayReservation) {
+        // Si es todo el día, establecer el horario de 8:00 a 22:00
+        startDate.setHours(8, 0, 0, 0);
+        endDate = new Date(startDate);
+        endDate.setHours(22, 0, 0, 0);
+      } else {
+        // Si no es todo el día, usar la fecha de fin seleccionada
+        endDate = new Date(selectedSlot.end);
+      }
+      
+      // Registrar información de la reserva
+      const startHour = startDate.getHours();
+      const endHour = endDate.getHours();
+      console.log(`Hora de inicio: ${startHour}:00, Hora de fin: ${endHour}:00`);
+      console.log(`Duración: ${endHour - startHour} horas`);      
+      console.log(`Fecha local inicio: ${startDate.toLocaleDateString()} ${startDate.getHours()}:${startDate.getMinutes()}`);
+      console.log(`Fecha local fin: ${endDate.toLocaleDateString()} ${endDate.getHours()}:${endDate.getMinutes()}`);
+      
+      // Preservamos la hora local (visual) al convertir a ISO
+      const startTime = preserveLocalTime(startDate);
+      const endTime = preserveLocalTime(endDate);
+      
+      console.log(`Fecha ISO start: ${startTime}`);
+      console.log(`Fecha ISO end: ${endTime}`);
+      
+      // Obtener nombre de la mesa para el mensaje de confirmación
+      const tableName = tables.find(t => t.id === selectedSlot.tableId)?.name || 'Mesa';
+      
+      // Calculamos la duración real entre las horas reservadas
+      const actualDuration = allDayReservation ? 14 : (endDate.getHours() - startDate.getHours());
+      
+      // Llamar a la API para crear la reserva
+      const result = await reservationService.createReservation({
+        tableId: selectedSlot.tableId,
+        startTime,
+        endTime,
+        durationHours: actualDuration,
+        numMembers,
+        numGuests,
+        allDay: allDayReservation,
+        reason: allDayReservation ? reservationReason : undefined
+      });
+      
+      // Actualizar la lista de reservas
+      setReservations([...reservations, result.reservation]);
+      
+      // Mensaje personalizado según si requiere aprobación o no
+      let message = '¡Reserva realizada!';
+      let details = `Has reservado ${tableName} para el ${format(startDate, "d 'de' MMMM", { locale: es })}`;
+      
+      if (allDayReservation && !result.reservation.approved) {
+        message = 'Reserva enviada para aprobación';
+        details = `Tu reserva para todo el día está pendiente de aprobación por un administrador`;
+      } else if (allDayReservation) {
+        details = `Has reservado ${tableName} para todo el día ${format(startDate, "d 'de' MMMM", { locale: es })}`;
+      } else {
+        details = `Has reservado ${tableName} para el ${format(startDate, "d 'de' MMMM", { locale: es })} de ${startDate.getHours()}:00 a ${endDate.getHours()}:00`;
+      }
+      
+      // Cerrar el modal y mostrar confirmación
+      closeLoading();
+      showSuccess(message, details);
+      setShowModal(false);
+      setSelectedSlot(null);
+      
+    } catch (error: unknown) {
+      console.error('Error al crear reserva:', error);
+      closeLoading();
+      
+      // Obtener mensaje de error específico de la API si está disponible
+      let errorMessage = 'No se ha podido crear la reserva. Por favor, inténtalo de nuevo.';
+        const apiError = error as ApiError;
+      if (apiError?.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError?.message && typeof apiError.message === 'string') {
+        errorMessage = apiError.message;
+      } else if (typeof apiError === 'object' && apiError !== null && 'error' in apiError && apiError.error) {
+        errorMessage = apiError.error;
+      }
+      
+      // Mostrar mensaje de error detallado
+      showError('Error en la reserva', errorMessage);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelReservation = async (id: number) => {
+    const isConfirmed = await showConfirm(
+      'Cancelar reserva',
+      '¿Estás seguro de que deseas cancelar esta reserva?',
+      'Cancelar reserva',
+      'Volver'
+    );
+    
+    if (!isConfirmed) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      showLoading('Cancelando reserva...');
+      
+      // Llamar a la API para eliminar la reserva
+      await reservationService.deleteReservation(id);
+      
+      // Actualizar lista de reservas eliminando la reserva cancelada
+      setReservations(reservations.filter(res => res.id !== id));
+      
+      closeLoading();
+      showSuccess('Reserva eliminada', 'Tu reserva ha sido eliminada correctamente');
+    } catch (error: unknown) {
+      console.error('Error al eliminar reserva:', error);
+      closeLoading();
+      showError('Error', 'No se ha podido eliminar la reserva. Por favor, inténtalo de nuevo.');
+      setError('Error al eliminar la reserva. Por favor, inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditReservation = (reservation: Reservation) => {
+    setIsEditMode(true);
+    setReservationToEdit(reservation);
+    setNumMembers(reservation.num_members);
+    setNumGuests(reservation.num_guests);
+    setAllDayReservation(reservation.all_day);
+    setReservationReason(reservation.reason || '');
+    
+    // Establecer la mesa correspondiente a la reserva
+    const reservationTable = tables.find(t => t.id === reservation.table_id) || null;
+    setSelectedTable(reservationTable);
+    
+    // Establecer las fechas de inicio y fin en el slot seleccionado
+    setSelectedSlot({
+      tableId: reservation.table_id,
+      start: new Date(reservation.start_time),
+      end: new Date(reservation.end_time),
+    });
+    
+    setShowModal(true);
+  };
+
+  const handleUpdateReservation = async () => {
+    if (!reservationToEdit || !user) return;
+    
+    if (allDayReservation && !reservationReason) {
+      showError('Error', 'Debes proporcionar una justificación para reservas de todo el día.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      showLoading('Actualizando reserva...');
+      
+      // Usamos directamente las fechas de inicio y fin seleccionadas
+      const startDate = new Date(selectedSlot!.start);
+      let endDate: Date;
+      
+      if (allDayReservation) {
+        // Si es todo el día, establecer el horario de 8:00 a 22:00
+        startDate.setHours(8, 0, 0, 0);
+        endDate = new Date(startDate);
+        endDate.setHours(22, 0, 0, 0);
+      } else {
+        // Si no es todo el día, usar la fecha de fin seleccionada
+        endDate = new Date(selectedSlot!.end);
+      }
+      
+      // Preservamos la hora local (visual) al convertir a ISO
+      const startTime = preserveLocalTime(startDate);
+      const endTime = preserveLocalTime(endDate);
+      
+      // Actualizar la reserva a través de la API
+      await reservationService.updateReservation(reservationToEdit.id, {
+        tableId: selectedSlot!.tableId,
+        startTime,
+        endTime,
+        durationHours: allDayReservation ? 14 : (endDate.getHours() - startDate.getHours()),
+        numMembers,
+        numGuests,
+        allDay: allDayReservation,
+        reason: allDayReservation ? reservationReason : undefined
+      });
+      
+      // Actualizar la lista de reservas
+      setReservations(reservations.map(res => res.id === reservationToEdit.id ? {
+        ...res,
+        table_id: selectedSlot!.tableId,
+        start_time: startTime,
+        end_time: endTime,
+        duration_hours: allDayReservation ? 14 : (endDate.getHours() - startDate.getHours()),
+        num_members: numMembers,
+        num_guests: numGuests,
+        all_day: allDayReservation,
+        reason: allDayReservation ? reservationReason : undefined
+      } : res));
+      
+      closeLoading();
+      showSuccess('Reserva actualizada', 'Tu reserva ha sido actualizada correctamente');
+      setShowModal(false);
+      setSelectedSlot(null);
+      setReservationToEdit(null);
+      setIsEditMode(false);
+    } catch (error: unknown) {
+      console.error('Error al actualizar reserva:', error);
+      closeLoading();
+      
+      // Obtener mensaje de error específico de la API si está disponible
+      let errorMessage = 'No se ha podido actualizar la reserva. Por favor, inténtalo de nuevo.';
+        const apiError = error as ApiError;
+      if (apiError?.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError?.message && typeof apiError.message === 'string') {
+        errorMessage = apiError.message;
+      } else if (typeof apiError === 'object' && apiError !== null && 'error' in apiError && apiError.error) {
+        errorMessage = apiError.error;
+      }
+      
+      // Mostrar mensaje de error detallado
+      showError('Error en la reserva', errorMessage);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="container mx-auto px-4 py-8 max-w-7xl"
+    >
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Reserva de mesas</h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          {viewMode === 'calendar' 
+            ? 'Selecciona una mesa para ver su disponibilidad y realizar una reserva'
+            : 'Gestiona tus reservas desde la vista de lista'}
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
+          <p>{error}</p>
+        </div>
+      )}
+
+      {/* Menú de navegación entre vistas */}
+      <div className="mb-4 flex gap-2">
+        <Button
+          variant={viewMode === 'calendar' ? 'primary' : 'outline'}
+          onClick={() => setViewMode('calendar')}
+          className="flex-1"
+        >
+          <Calendar className="w-5 h-5 mr-2" />
+          Ver en calendario
+        </Button>
+        <Button
+          variant={viewMode === 'list' ? 'primary' : 'outline'}
+          onClick={() => setViewMode('list')}
+          className="flex-1"
+        >
+          <List className="w-5 h-5 mr-2" />
+          Ver como lista
+        </Button>
+      </div>
+
+      {/* Selector de mesa (solo visible en modo calendario) */}
+      {viewMode === 'calendar' && (
+        <div className="mb-6">
+          <label htmlFor="tableSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Selecciona una mesa:
+          </label>
+          <select
+            id="tableSelect"
+            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            onChange={(e) => {
+              const tableId = parseInt(e.target.value);
+              const table = tables.find(t => t.id === tableId) || null;
+              setSelectedTable(table);
+            }}
+            value={selectedTable?.id || ""}
+          >
+            <option value="">-- Selecciona una mesa --</option>
+            {tables.map((table) => (
+              <option key={table.id} value={table.id}>
+                {table.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Información de la mesa seleccionada (solo en modo calendario) */}
+      {viewMode === 'calendar' && selectedTable && (
+        <Card className="mb-8">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-2">{selectedTable.name}</h2>
+            {selectedTable.description && (
+              <p className="text-gray-600 dark:text-gray-400 mb-4">{selectedTable.description}</p>
+            )}
+            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+              <Users className="w-4 h-4 mr-1" />
+              <span>Mesa {selectedTable.id}</span>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Vista de calendario o lista de reservas */}
+      {viewMode === 'calendar' ? (
+        selectedTable ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-8">
+            <BigCalendar
+              reservations={reservations.filter(res => res.table_id === selectedTable.id)}
+              tables={[selectedTable]}
+              onSelectSlot={handleSelectSlot}
+              onCancelReservation={handleCancelReservation}
+            />
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden p-6 text-center mb-8">
+            <p className="text-gray-600 dark:text-gray-400">Por favor, selecciona una mesa para ver el calendario de reservas.</p>
+          </div>
+        )
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-8">
+          <ReservationsList
+            reservations={reservations}
+            onEditReservation={handleEditReservation}
+            onCancelReservation={handleCancelReservation}
+          />
+        </div>
+      )}
+
+      {/* Modal de reserva */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={isEditMode ? "Editar Reserva" : "Realizar Reserva"}
+      >
+        {selectedSlot && (
+          <form onSubmit={(e) => { e.preventDefault(); isEditMode ? handleUpdateReservation() : handleMakeReservation(); }}>
+            <div className="mb-6">
+              <h3 className="font-medium text-lg mb-2">
+                {tables.find(t => t.id === selectedSlot.tableId)?.name || 'Mesa'}
+              </h3>
+              <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mb-2">
+                <Calendar size={16} className="mr-1" />
+                {format(selectedSlot.start, "EEEE, d 'de' MMMM", { locale: es })}
+              </div>
+              <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mt-1">
+                <Clock size={16} className="mr-1" />
+                {allDayReservation 
+                  ? "Todo el día (08:00 - 22:00)" 
+                  : `${selectedSlot.start.getHours()}:00 - ${selectedSlot.end.getHours()}:00`
+                }
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Número de socios
+                </label>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    className="p-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                    onClick={() => numMembers > 1 && setNumMembers(numMembers - 1)}
+                  >
+                    -
+                  </button>
+                  <span className="mx-2 text-gray-700 dark:text-gray-300 w-4 text-center">{numMembers}</span>
+                  <button
+                    type="button"
+                    className="p-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                    onClick={() => setNumMembers(numMembers + 1)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Número de invitados
+                </label>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    className="p-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                    onClick={() => numGuests > 0 && setNumGuests(numGuests - 1)}
+                  >
+                    -
+                  </button>
+                  <span className="mx-2 text-gray-700 dark:text-gray-300 w-4 text-center">{numGuests}</span>
+                  <button
+                    type="button"
+                    className="p-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                    onClick={() => setNumGuests(numGuests + 1)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  id="allDayReservation"
+                  checked={allDayReservation}
+                  onChange={(e) => setAllDayReservation(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="allDayReservation" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  Reservar todo el día (08:00 - 22:00)
+                </label>
+              </div>
+              
+              {allDayReservation && (
+                <Input
+                  id="reason"
+                  label="Justificación (requerido para reservas de todo el día)"
+                  type="text"
+                  value={reservationReason}
+                  onChange={(e) => setReservationReason(e.target.value)}
+                  required={allDayReservation}
+                  placeholder="Motivo de la reserva para todo el día"
+                  className="mb-4"
+                />
+              )}
+            </div>
+
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-4 mb-6 italic">
+              Nota: Las reservas de todo el día requieren aprobación administrativa.
+            </div>
+              
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || (allDayReservation && !reservationReason)}
+              >
+                {isEditMode ? 'Actualizar Reserva' : 'Confirmar Reserva'}
+              </Button>
+            </div>
+          </form>
+        )}      </Modal>
+    </motion.div>
+  );
+};
+
+export default ReservationsPage;

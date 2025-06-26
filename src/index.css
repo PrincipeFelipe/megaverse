@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 13, 166, 210;
+    --color-secondary: 132, 207, 238;
+    --color-dark: 35, 42, 67;
+  }
+  
+  body {
+    @apply bg-dark-50 dark:bg-dark-900 text-dark-900 dark:text-gray-100;
+  }
+}
+
+.bg-megaverse-gradient {
+  background: linear-gradient(135deg, #232a43 0%, #0da6d2 50%, #84cfee 100%);
+}
+
+.bg-megaverse-gradient-soft {
+  background: linear-gradient(135deg, rgba(35, 42, 67, 0.8) 0%, rgba(13, 166, 210, 0.7) 50%, rgba(132, 207, 238, 0.6) 100%);
+}
+
+.bg-megaverse-gradient-dark {
+  background: linear-gradient(135deg, #1a2033 0%, #0a89ad 50%, #5eb2d1 100%);
+}
+
+.text-megaverse-gradient {
+  background: linear-gradient(135deg, #0da6d2 0%, #84cfee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-megaverse-gradient-dark {
+  background: linear-gradient(135deg, #0a89ad 0%, #5eb2d1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Estilos para avatares */
+.avatar {
+  @apply rounded-full border border-dark-500 overflow-hidden flex items-center justify-center bg-dark-800 transition-all;
+  position: relative;
+}
+
+.avatar img {
+  @apply w-full h-full object-cover;
+}
+
+.avatar-header {
+  @apply w-8 h-8 mr-2;
+}
+
+.avatar-profile {
+  @apply w-24 h-24 md:w-32 md:h-32 mx-auto;
+  box-shadow: 0 0 10px rgba(13, 166, 210, 0.3);
+}
+
+.avatar-placeholder {
+  @apply flex items-center justify-center bg-dark-800 text-gray-400;
+}
+
+/* Estilos para el icono de cámara en la imagen de perfil */
+.avatar-upload-icon {
+  @apply absolute inset-0 bg-dark-900/70 flex items-center justify-center opacity-0 transition-opacity duration-300;
+}
+
+.avatar:hover .avatar-upload-icon {
+  @apply opacity-100;
+}
+
+/* Indicador de carga para avatares */
+.avatar-loading {
+  position: relative;
+}
+
+.avatar-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: theme('colors.primary.400');
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

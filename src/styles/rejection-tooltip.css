@@ -1,0 +1,108 @@
+/* Estilos mejorados para tooltips de motivo de rechazo */
+.tooltip-rejection {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip-rejection .tooltip-text {
+  visibility: hidden;
+  min-width: 220px;
+  max-width: 300px;
+  background-color: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 6px;
+  padding: 12px;
+  position: absolute;
+  z-index: 10;
+  bottom: 135%; /* Movido ligeramente hacia arriba */
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s, visibility 0.3s;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Posicionamiento responsivo para móviles */
+@media (max-width: 640px) {
+  .tooltip-rejection .tooltip-text {
+    right: -50px; /* Ajuste para posicionamiento en móviles */
+    left: auto;
+    transform: none;
+    bottom: 135%;
+  }
+  
+  .tooltip-rejection .tooltip-text::after {
+    left: 50%;
+  }
+  
+  /* Mejoras para el layout en móviles */
+  .flex.flex-col.sm\:flex-row.items-center.justify-center.gap-3.w-full {
+    gap: 1rem !important;
+  }
+}
+
+.tooltip-rejection .tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+.tooltip-rejection:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Estilos para el botón de "Ver motivo" */
+.rejection-reason-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: rgba(220, 38, 38, 0.1);
+  transition: all 0.2s;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  height: 28px; /* Altura similar a un botón pequeño */
+  white-space: nowrap;
+  min-width: max-content;
+}
+
+.rejection-reason-button:hover {
+  background-color: rgba(220, 38, 38, 0.2);
+}
+
+/* Animación de pulso para el icono de alerta */
+@keyframes alertPulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.alert-icon-pulse {
+  animation: alertPulse 2s infinite;
+}
+
+/* Estilos para modo oscuro */
+.dark .tooltip-rejection .tooltip-text {
+  background-color: #1e1e2d;
+  border: 1px solid #383850;
+}
+
+.dark .tooltip-rejection .tooltip-text::after {
+  border-color: #1e1e2d transparent transparent transparent;
+}
+
+.dark .rejection-reason-button {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+.dark .rejection-reason-button:hover {
+  background-color: rgba(239, 68, 68, 0.25);
+}

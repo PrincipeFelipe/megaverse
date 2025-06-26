@@ -1,0 +1,373 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Calendar, Clock, MapPin, Plus, X } from '../utils/icons';
+import { useAuth } from '../contexts/AuthContext';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
+import { Table, Reservation } from '../types';
+import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { tableService, reservationService } from '../services/api';
+
+export const ReservationsPage: React.FC = () => {
+  const { user } = useAuth();
+  const [tables, setTables] = useState<Table[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [selectedWeek, setSelectedWeek] = useState(new Date());
+  const [showModal, setShowModal] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<{
+    tableId: number;
+    date: Date;
+    hour: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const timeSlots = Array.from({ length: 12 }, (_, i) => i + 10); // 10:00 to 21:00
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Obtener mesas y reservas de la API
+        const tablesData = await tableService.getAllTables();
+        setTables(tablesData);
+        
+        const reservationsData = await reservationService.getAllReservations();
+        setReservations(reservationsData);
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+        setError('Error al cargar los datos de reservas. Por favor, inténtalo de nuevo.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const getDayOfWeek = (day: number) => {
+    const firstDay = startOfWeek(selectedWeek, { weekStartsOn: 1 });
+    return addDays(firstDay, day);
+  };
+
+  const isReserved = (tableId: number, date: Date, hour: number) => {
+    const hourDate = new Date(date);
+    hourDate.setHours(hour, 0, 0, 0);
+    
+    return reservations.some(res => {
+      const start = parseISO(res.start_time);
+      const end = parseISO(res.end_time);
+      
+      return (
+        res.table_id === tableId &&
+        res.status === 'active' &&
+        isSameDay(hourDate, start) &&
+        hour >= start.getHours() &&
+        hour < end.getHours()
+      );
+    });
+  };
+
+  const handleSelectSlot = (tableId: number, date: Date, hour: number) => {
+    if (!user) {
+      // Redireccionar a login si no hay usuario autenticado
+      window.location.href = '/auth';
+      return;
+    }
+    
+    setSelectedSlot({ tableId, date, hour });
+    setShowModal(true);
+  };
+
+  const handleMakeReservation = async () => {
+    if (!selectedSlot || !user) return;
+    
+    try {
+      setLoading(true);
+      
+      // Crear fecha de inicio para la reserva
+      const startDate = new Date(selectedSlot.date);
+      startDate.setHours(selectedSlot.hour, 0, 0, 0);
+      
+      // La reserva dura 2 horas por defecto
+      const endDate = new Date(startDate);
+      endDate.setHours(startDate.getHours() + 2);
+      
+      // Formato ISO para las fechas
+      const startTime = startDate.toISOString();
+      const endTime = endDate.toISOString();
+      
+      // Llamar a la API para crear la reserva
+      const result = await reservationService.createReservation({
+        tableId: selectedSlot.tableId,
+        startTime,
+        endTime
+      });
+      
+      // Actualizar la lista de reservas
+      setReservations([...reservations, result.reservation]);
+      
+      // Cerrar el modal
+      setShowModal(false);
+      setSelectedSlot(null);
+      
+    } catch (error) {
+      console.error('Error al crear reserva:', error);
+      setError('Error al crear la reserva. Por favor, inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelReservation = async (id: number) => {
+    if (!window.confirm('¿Estás seguro de que deseas cancelar esta reserva?')) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Llamar a la API para cancelar la reserva
+      await reservationService.updateReservationStatus(id, 'cancelled');
+      
+      // Actualizar lista de reservas
+      setReservations(reservations.map(res => 
+        res.id === id ? { ...res, status: 'cancelled' } : res
+      ));
+      
+    } catch (error) {
+      console.error('Error al cancelar reserva:', error);
+      setError('Error al cancelar la reserva. Por favor, inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getReservationDetails = (tableId: number, date: Date, hour: number) => {
+    const hourDate = new Date(date);
+    hourDate.setHours(hour, 0, 0, 0);
+    
+    const reservation = reservations.find(res => {
+      const start = parseISO(res.start_time);
+      const end = parseISO(res.end_time);
+      
+      return (
+        res.table_id === tableId &&
+        res.status === 'active' &&
+        isSameDay(hourDate, start) &&
+        hour >= start.getHours() &&
+        hour < end.getHours()
+      );
+    });
+    
+    return reservation;
+  };
+
+  const handleNextWeek = () => {
+    setSelectedWeek(addDays(selectedWeek, 7));
+  };
+
+  const handlePrevWeek = () => {
+    setSelectedWeek(addDays(selectedWeek, -7));
+  };
+
+  if (loading && tables.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-dark-950 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && tables.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-dark-950 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>Reintentar</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen bg-gray-50 dark:bg-dark-950 p-6"
+    >
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+          Reserva de Mesas
+        </h1>
+        
+        <Card className="mb-8">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center">
+                <Calendar className="mr-2" size={20} />
+                Semana del {format(startOfWeek(selectedWeek, { weekStartsOn: 1 }), "d 'de' MMMM", { locale: es })}
+              </h2>
+              <div className="flex space-x-2">
+                <Button onClick={handlePrevWeek} variant="outline">Anterior</Button>
+                <Button onClick={handleNextWeek} variant="outline">Siguiente</Button>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="border p-2 bg-gray-100 dark:bg-dark-800">Mesa / Hora</th>
+                    {[1, 2, 3, 4, 5].map(day => (
+                      <th key={day} className="border p-2 bg-gray-100 dark:bg-dark-800">
+                        {format(getDayOfWeek(day - 1), "EEEE d", { locale: es })}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tables.map(table => (
+                    <tr key={table.id}>
+                      <td className="border p-2 font-medium">
+                        {table.name}
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{table.description}</div>
+                      </td>
+                      {[1, 2, 3, 4, 5].map(day => (
+                        <td key={day} className="border p-2">
+                          {timeSlots.map(hour => {
+                            const date = getDayOfWeek(day - 1);
+                            const reserved = isReserved(table.id, date, hour);
+                            const reservation = getReservationDetails(table.id, date, hour);
+                            const isMyReservation = reservation?.user_id === user?.id;
+                            
+                            return (
+                              <div 
+                                key={hour} 
+                                className={`py-1 px-2 mb-1 rounded text-sm ${
+                                  reserved 
+                                    ? isMyReservation
+                                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' 
+                                      : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                                    : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 cursor-pointer hover:bg-green-200 dark:hover:bg-green-800'
+                                }`}
+                                onClick={() => !reserved && handleSelectSlot(table.id, date, hour)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span>{hour}:00</span>
+                                  {reserved ? (
+                                    isMyReservation ? (
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleCancelReservation(reservation.id);
+                                        }}
+                                        className="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100"
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    ) : <span className="text-xs">Reservado</span>
+                                  ) : (
+                                    <Plus size={14} />
+                                  )}
+                                </div>
+                                {reserved && isMyReservation && (
+                                  <div className="text-xs">Tu reserva</div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+        
+        {user ? (
+          <Card>
+            <div className="p-4">
+              <h2 className="text-xl font-semibold mb-4">Mis Reservas</h2>
+              {reservations.filter(r => r.user_id === user.id && r.status === 'active').length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400">No tienes reservas activas.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {reservations
+                    .filter(r => r.user_id === user.id && r.status === 'active')
+                    .map(reservation => (
+                      <div key={reservation.id} className="border p-4 rounded-lg">
+                        <h3 className="font-medium">{reservation.table_name}</h3>
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mt-2">
+                          <Calendar size={16} className="mr-1" />
+                          {format(parseISO(reservation.start_time), "EEEE d 'de' MMMM", { locale: es })}
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mt-1">
+                          <Clock size={16} className="mr-1" />
+                          {format(parseISO(reservation.start_time), 'HH:mm')} - {format(parseISO(reservation.end_time), 'HH:mm')}
+                        </div>
+                        <Button 
+                          variant="danger" 
+                          size="sm" 
+                          className="mt-3"
+                          onClick={() => handleCancelReservation(reservation.id)}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        ) : (
+          <Card>
+            <div className="p-4 text-center">
+              <p className="mb-3">Inicia sesión para gestionar tus reservas</p>
+              <Button onClick={() => window.location.href = '/auth'}>Iniciar Sesión</Button>
+            </div>
+          </Card>
+        )}
+        
+        {/* Modal de confirmación de reserva */}
+        <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Confirmar Reserva">
+          {selectedSlot && (
+            <div>
+              <p className="mb-4">¿Deseas reservar la siguiente mesa?</p>
+              <div className="mb-4 p-3 bg-gray-100 dark:bg-dark-800 rounded-lg">
+                <p className="font-medium">{tables.find(t => t.id === selectedSlot.tableId)?.name}</p>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mt-2">
+                  <Calendar size={16} className="mr-1" />
+                  {format(selectedSlot.date, "EEEE d 'de' MMMM", { locale: es })}
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mt-1">
+                  <Clock size={16} className="mr-1" />
+                  {selectedSlot.hour}:00 - {selectedSlot.hour + 2}:00
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowModal(false)}>Cancelar</Button>
+                <Button onClick={handleMakeReservation} disabled={loading}>
+                  {loading ? 'Reservando...' : 'Confirmar Reserva'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      </div>
+    </motion.div>
+  );
+};

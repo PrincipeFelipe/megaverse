@@ -1,0 +1,249 @@
+/* Estilos personalizados para react-big-calendar */
+
+/* Contenedor principal */
+.rbc-calendar {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  border-radius: 8px;
+  background-color: white;
+  color: #333;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .rbc-calendar {
+    background-color: #1a1a1a;
+    color: #f0f0f0;
+  }
+}
+
+/* Encabezado del calendario */
+.rbc-toolbar {
+  padding: 12px;
+  margin-bottom: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rbc-toolbar {
+    background-color: #2a2a2a;
+  }
+  
+  .rbc-toolbar-label {
+    color: #f0f0f0;
+    font-weight: 600;
+  }
+}
+
+/* Botones de navegación */
+.rbc-btn-group button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  color: #333;
+  border: 1px solid #d1d5db;
+  background-color: white;
+  font-weight: 500;
+}
+
+.rbc-btn-group button:hover {
+  background-color: #f3f4f6;
+}
+
+.rbc-btn-group button.rbc-active {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rbc-btn-group button {
+    background-color: #333;
+    color: #f0f0f0;
+    border-color: #555;
+  }
+  
+  .rbc-btn-group button:hover {
+    background-color: #444;
+  }
+  
+  .rbc-btn-group button.rbc-active {
+    background-color: #3b82f6;
+    color: white;
+  }
+}
+
+/* Celdas de tiempo */
+.rbc-time-slot {
+  border-top: 1px solid #f0f0f0;
+  height: 40px !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rbc-time-slot {
+    border-top: 1px solid #333;
+  }
+  
+  .rbc-timeslot-group {
+    border-bottom: 1px solid #333;
+  }
+  
+  .rbc-time-view {
+    border: 1px solid #333;
+  }
+  
+  .rbc-day-bg + .rbc-day-bg {
+    border-left: 1px solid #333;
+  }
+}
+
+/* Eventos */
+.rbc-event {
+  border-radius: 6px;
+  padding: 4px 6px;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s ease;
+  color: #ffffff;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.rbc-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Texto de evento */
+.rbc-event-content {
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+/* Encabezado de la vista de día/semana */
+.rbc-header {
+  padding: 12px 4px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.rbc-month-view {
+  border: 1px solid #e0e0e0;
+}
+
+.rbc-month-row {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.rbc-day-bg + .rbc-day-bg {
+  border-left: 1px solid #e0e0e0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rbc-header {
+    background-color: #2a2a2a;
+    color: #f0f0f0;
+    border-bottom: 1px solid #444;
+  }
+  
+  .rbc-month-view {
+    border: 1px solid #444;
+  }
+  
+  .rbc-month-row {
+    border-bottom: 1px solid #444;
+  }
+  
+  .rbc-day-bg + .rbc-day-bg {
+    border-left: 1px solid #444;
+  }
+  
+  .rbc-off-range {
+    color: #777;
+  }
+  
+  .rbc-off-range-bg {
+    background-color: #222;
+  }
+  
+  .rbc-date-cell {
+    color: #e0e0e0;
+    padding-right: 5px;
+  }
+  
+  .rbc-date-cell.rbc-now {
+    font-weight: bold;
+    color: #3b82f6;
+  }
+}
+
+/* Etiquetas de hora */
+.rbc-time-gutter .rbc-label {
+  font-weight: 500;
+  color: #666;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rbc-time-gutter .rbc-label {
+    color: #aaa;
+  }
+}
+
+/* Selector de hora/rango */
+.rbc-slot-selection {
+  background-color: rgba(59, 130, 246, 0.25);
+  border: 1px dashed #3b82f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rbc-slot-selection {
+    background-color: rgba(59, 130, 246, 0.35);
+  }
+}
+
+/* Columna de hoy */
+.rbc-today {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .rbc-today {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+}
+
+/* Botón cancelar de reserva */
+.reservation-cancel-btn {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 3px 6px;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+  display: inline-block;
+  color: white;
+  font-weight: 600;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+.reservation-cancel-btn:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Modal de selección de mesa */
+.table-selection-popover {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  max-width: 250px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .table-selection-popover {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+}
