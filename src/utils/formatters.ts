@@ -99,3 +99,24 @@ export const formatFileSize = (bytes: number, decimals: number = 2): string => {
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
+
+/**
+ * Formatea una fecha en formato largo para el blog (ej: 15 de enero de 2023)
+ * @param date - La fecha a formatear
+ * @returns La fecha formateada en formato largo
+ */
+export const formatLongDate = (date: string | Date): string => {
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Verificar si es una fecha válida
+    if (isNaN(dateObj.getTime())) {
+      return 'Fecha inválida';
+    }
+    
+    return format(dateObj, "d 'de' MMMM 'de' yyyy", { locale: es });
+  } catch (error) {
+    console.error('Error al formatear fecha:', error);
+    return 'Error de formato';
+  }
+};

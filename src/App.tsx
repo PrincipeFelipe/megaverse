@@ -47,6 +47,10 @@ import { ConsumptionPaymentsPage } from './pages/admin/ConsumptionPaymentsPage';
 // Documentación
 import DocumentsPage from './pages/admin/DocumentsPage';
 
+// Blog Pages
+import BlogPage from './pages/blog/BlogPage';
+import BlogPostPage from './pages/blog/BlogPostPage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -234,6 +238,24 @@ const AppContent: React.FC = () => {
                   <DocumentsPage />
                 </AdminProtectedRoute>
               } 
+            />
+
+            {/* Rutas del Blog */}
+            <Route
+              path="/blog"
+              element={
+                <ProtectedRoute>
+                  <BlogPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/blog/:slug"
+              element={
+                <ProtectedRoute>
+                  <BlogPostPage />
+                </ProtectedRoute>
+              }
             />
           </Routes>
         </main>
