@@ -8,6 +8,7 @@ export { paymentsService } from './paymentsService';
 export { uploadService } from './uploadService';
 export { consumptionPaymentsService } from './consumptionPaymentsService';
 export { documentService } from './documentService';
+export { cleaningDutyService } from './cleaningDutyService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 const API_PATH = '';

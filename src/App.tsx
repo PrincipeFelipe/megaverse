@@ -54,6 +54,10 @@ import AdminBlogPage from './pages/admin/blog/AdminBlogPage';
 import BlogPage from './pages/blog/BlogPage';
 import BlogPostPage from './pages/blog/BlogPostPage';
 
+// Cleaning Duty Pages
+import UserCleaningDutyPage from './pages/UserCleaningDutyPage';
+import AdminCleaningDutyPage from './pages/admin/cleaning/AdminCleaningDutyPage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -252,6 +256,16 @@ const AppContent: React.FC = () => {
                 </AdminProtectedRoute>
               } 
             />
+            
+            {/* Ruta para el sistema de limpieza (admin) */}
+            <Route 
+              path="/admin/cleaning" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminCleaningDutyPage />
+                </AdminProtectedRoute>
+              } 
+            />
 
             {/* Rutas del Blog */}
             <Route
@@ -261,6 +275,16 @@ const AppContent: React.FC = () => {
             <Route
               path="/blog/:slug"
               element={<BlogPostPage />}
+            />
+            
+            {/* Ruta para el sistema de limpieza (usuario) */}
+            <Route
+              path="/cleaning"
+              element={
+                <ProtectedRoute>
+                  <UserCleaningDutyPage />
+                </ProtectedRoute>
+              }
             />
           </Routes>
         </main>

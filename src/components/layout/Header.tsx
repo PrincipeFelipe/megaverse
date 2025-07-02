@@ -20,6 +20,7 @@ export const Header: React.FC = () => {
     { name: 'Blog', href: '/blog', requiresAuth: false }, // Añadimos el blog para todos los usuarios
     { name: 'Reservas', href: '/reservations', requiresAuth: true },
     { name: 'Productos', href: '/products', requiresAuth: true },
+    { name: 'Limpieza', href: '/cleaning', requiresAuth: true }, // Añadimos el sistema de limpieza para usuarios
     // Eliminados los enlaces individuales para añadirlos al menú desplegable
   ];
 

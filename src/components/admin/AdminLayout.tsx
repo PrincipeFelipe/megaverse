@@ -119,6 +119,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
       path: '/admin/blog',
       active: currentPath.includes('/admin/blog')
     },
+    {
+      name: 'Sistema de Limpieza',
+      icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M3 22v-8.5L9 6l3.5 3.5"></path><path d="m9 6 1.5 1.5"></path><path d="M19.5 14.5 16 18h6l-4-8-1.8 3.6"></path><path d="m12.8 9.6 3.5 3.5"></path><path d="M22 2 2 22"></path></svg>,
+      path: '/admin/cleaning',
+      active: currentPath.includes('/admin/cleaning')
+    },
     { 
       name: 'Configuración', 
       icon: <Settings className="w-5 h-5" />, 
