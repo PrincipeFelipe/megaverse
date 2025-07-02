@@ -1,4 +1,4 @@
-import db from '../config/database.js';
+import { pool as db } from '../config/database.js';
 import { format, addWeeks, startOfWeek, endOfWeek } from 'date-fns';
 
 // Obtener la configuración actual del sistema de limpieza
