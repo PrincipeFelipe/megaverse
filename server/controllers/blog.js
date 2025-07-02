@@ -1,5 +1,6 @@
 import { pool } from '../config/database.js';
 import slugify from 'slugify';
+// La importación del servicio de redes sociales ha sido eliminada
 
 /**
  * Controlador para la gestión de posts del blog
@@ -19,12 +20,23 @@ export const blogPostsController = {
         tag,
         author_id,
         search,
-        status = 'published', // Por defecto solo mostramos publicados
+        status, // Quitamos el valor por defecto para mostrar todos los estados
         page = 1,
         limit = 10,
         sort_by = 'created_at',
         sort_order = 'desc'
       } = req.query;
+      
+      // Log para depuración
+      console.log('getAllPosts - Filtros recibidos:', {
+        status,
+        category,
+        tag,
+        author_id,
+        search,
+        page,
+        limit
+      });
       
       // Calcular offset para paginación
       const offset = (page - 1) * limit;
@@ -35,13 +47,16 @@ export const blogPostsController = {
           p.id, 
           p.title, 
           p.slug, 
+          p.content,
           p.excerpt, 
           p.image_url, 
           p.author_id,
           p.featured,
+          LOWER(p.status) as status, -- Convertirlo a minúsculas para consistencia
           p.created_at, 
           p.updated_at,
           u.username as author_name,
+          c.id as category_id,
           c.name as category,
           (SELECT COUNT(*) FROM blog_comments WHERE post_id = p.id AND status = 'approved') as comments_count
         FROM 
@@ -59,8 +74,21 @@ export const blogPostsController = {
       
       // Filtrar por estado (publicado/borrador)
       if (status) {
-        query += " AND p.status = ?";
-        queryParams.push(status);
+        console.log('Filtrando por status:', status);
+        
+        // Asegurar que el status sea minúsculas para consistencia
+        const statusLower = String(status).toLowerCase();
+        console.log('Status convertido a minúsculas:', statusLower);
+        
+        // Usar LOWER en ambos lados para asegurar la comparación correcta
+        query += " AND LOWER(p.status) = LOWER(?)";
+        queryParams.push(statusLower);
+        
+        // Log adicional para debugging
+        console.log('Consulta SQL con filtro de status:', query);
+        console.log('Valor del parámetro status:', statusLower);
+      } else {
+        console.log('No se está filtrando por status');
       }
       
       // Filtrar por categoría
@@ -108,8 +136,19 @@ export const blogPostsController = {
       query += " LIMIT ? OFFSET ?";
       queryParams.push(Number(limit), Number(offset));
       
+      // Log para mostrar la consulta SQL final
+      console.log('Consulta SQL final:', query);
+      console.log('Parámetros de la consulta:', queryParams);
+      
       // Ejecutar consulta
       const [posts] = await connection.query(query, queryParams);
+      
+      // Log para mostrar los resultados
+      console.log(`Encontrados ${posts.length} posts.`);
+      // Mostrar los posts encontrados para depuración
+      posts.forEach(post => {
+        console.log(`Post ID: ${post.id}, Título: ${post.title}, Status: '${post.status}'`);
+      });
       
       // Obtener los tags para cada post
       for (let post of posts) {
@@ -178,7 +217,7 @@ export const blogPostsController = {
           p.image_url, 
           p.author_id,
           p.featured,
-          p.status,
+          LOWER(p.status) as status, -- Convertirlo a minúsculas para consistencia
           p.created_at, 
           p.updated_at,
           u.username as author_name,
@@ -228,9 +267,10 @@ export const blogPostsController = {
     try {
       connection = await pool.getConnection();
       const { slug } = req.params;
+      const { publicOnly } = req.query;
       
-      // Consultar el post
-      const [posts] = await connection.query(`
+      // Construir la consulta
+      let query = `
         SELECT 
           p.id, 
           p.title, 
@@ -240,7 +280,7 @@ export const blogPostsController = {
           p.image_url, 
           p.author_id,
           p.featured,
-          p.status,
+          LOWER(p.status) as status, -- Convertirlo a minúsculas para consistencia 
           p.created_at, 
           p.updated_at,
           u.username as author_name,
@@ -255,7 +295,17 @@ export const blogPostsController = {
           blog_categories c ON p.category_id = c.id
         WHERE 
           p.slug = ?
-      `, [slug]);
+      `;
+      
+      const queryParams = [slug];
+      
+      // Si es una solicitud pública, solo mostrar posts publicados
+      if (publicOnly === 'true') {
+        query += " AND LOWER(p.status) = 'published'";
+      }
+      
+      // Ejecutar la consulta
+      const [posts] = await connection.query(query, queryParams);
       
       if (posts.length === 0) {
         return res.status(404).json({ message: 'Post no encontrado' });
@@ -300,7 +350,9 @@ export const blogPostsController = {
         category_id,
         tags,
         status = 'draft',
-        featured = false
+        featured = false,
+        // Nuevos campos para redes sociales
+        socialMedia = []
       } = req.body;
       
       // Validaciones básicas
@@ -413,9 +465,11 @@ export const blogPostsController = {
       
       post.tags = postTags;
       
+      // La lógica de publicación en redes sociales ha sido eliminada
+      
       res.status(201).json({ 
         message: 'Post creado exitosamente',
-        post 
+        post
       });
     } catch (error) {
       if (connection) await connection.rollback();
@@ -444,7 +498,9 @@ export const blogPostsController = {
         category_id,
         tags,
         status,
-        featured
+        featured,
+        // Nuevos campos para redes sociales
+        socialMedia = []
       } = req.body;
       
       // Verificar que el post existe
@@ -459,6 +515,10 @@ export const blogPostsController = {
       if (post.author_id !== req.user.id && req.user.role !== 'admin') {
         return res.status(403).json({ message: 'No tienes permiso para editar este post' });
       }
+      
+      // Guardar el estado anterior para saber si el post se está publicando ahora
+      const previousStatus = post.status;
+      const isNewlyPublished = previousStatus !== 'published' && status === 'published';
       
       // Actualizar slug si cambió el título
       let slug = post.slug;
@@ -598,9 +658,11 @@ export const blogPostsController = {
       
       updatedPost.tags = updatedTags;
       
+      // La lógica de publicación en redes sociales ha sido eliminada
+      
       res.json({ 
         message: 'Post actualizado exitosamente',
-        post: updatedPost 
+        post: updatedPost
       });
     } catch (error) {
       if (connection) await connection.rollback();
@@ -1046,234 +1108,5 @@ export const blogTagsController = {
 };
 
 /**
- * Controlador para la gestión de comentarios del blog
+ * El controlador de comentarios del blog ha sido eliminado
  */
-export const blogCommentsController = {
-  /**
-   * Obtener comentarios de un post
-   */
-  getCommentsByPostId: async (req, res) => {
-    let connection;
-    try {
-      connection = await pool.getConnection();
-      
-      const { postId } = req.params;
-      const { status = 'approved' } = req.query;
-      
-      // Si el usuario es admin o autor, puede ver todos los comentarios
-      // Si no, solo los aprobados
-      let statusFilter = '';
-      const queryParams = [postId];
-      
-      if (req.user && (req.user.role === 'admin' || req.user.role === 'moderator')) {
-        // Si se proporciona un filtro de estado específico para admin
-        if (status && status !== 'all') {
-          statusFilter = 'AND c.status = ?';
-          queryParams.push(status);
-        }
-      } else {
-        // Para usuarios normales, solo ver comentarios aprobados
-        statusFilter = 'AND c.status = ?';
-        queryParams.push('approved');
-      }
-      
-      // Obtener comentarios
-      const [comments] = await connection.query(`
-        SELECT 
-          c.id,
-          c.content,
-          c.status,
-          c.created_at,
-          c.updated_at,
-          c.user_id,
-          u.username as user_name
-        FROM 
-          blog_comments c
-        JOIN 
-          users u ON c.user_id = u.id
-        WHERE 
-          c.post_id = ?
-          ${statusFilter}
-        ORDER BY 
-          c.created_at DESC
-      `, queryParams);
-      
-      res.json({ comments });
-    } catch (error) {
-      console.error('Error al obtener comentarios del blog:', error);
-      res.status(500).json({ message: 'Error al obtener comentarios del blog' });
-    } finally {
-      if (connection) connection.release();
-    }
-  },
-  
-  /**
-   * Crear un nuevo comentario en un post
-   */
-  createComment: async (req, res) => {
-    let connection;
-    try {
-      connection = await pool.getConnection();
-      
-      const { postId } = req.params;
-      const { content } = req.body;
-      
-      // Validación
-      if (!content) {
-        return res.status(400).json({ message: 'El contenido del comentario es obligatorio' });
-      }
-      
-      // Verificar que el post existe
-      const [posts] = await connection.query(
-        'SELECT * FROM blog_posts WHERE id = ?',
-        [postId]
-      );
-      
-      if (posts.length === 0) {
-        return res.status(404).json({ message: 'Post no encontrado' });
-      }
-      
-      // Determinar estado inicial del comentario (aprobado automáticamente o pendiente)
-      const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'moderator');
-      const isAuthor = req.user && req.user.id === posts[0].author_id;
-      
-      // Los admins y autores pueden publicar comentarios sin moderación
-      const initialStatus = (isAdmin || isAuthor) ? 'approved' : 'pending';
-      
-      // Insertar comentario
-      const [result] = await connection.query(`
-        INSERT INTO blog_comments (
-          post_id,
-          user_id,
-          content,
-          status
-        ) VALUES (?, ?, ?, ?)
-      `, [postId, req.user.id, content, initialStatus]);
-      
-      const commentId = result.insertId;
-      
-      // Obtener comentario creado
-      const [comments] = await connection.query(`
-        SELECT 
-          c.id,
-          c.content,
-          c.status,
-          c.created_at,
-          c.updated_at,
-          c.user_id,
-          u.username as user_name
-        FROM 
-          blog_comments c
-        JOIN 
-          users u ON c.user_id = u.id
-        WHERE 
-          c.id = ?
-      `, [commentId]);
-      
-      res.status(201).json({ 
-        message: initialStatus === 'approved' 
-          ? 'Comentario publicado exitosamente'
-          : 'Comentario enviado y en espera de aprobación',
-        comment: comments[0]
-      });
-    } catch (error) {
-      console.error('Error al crear comentario del blog:', error);
-      res.status(500).json({ message: 'Error al crear comentario del blog' });
-    } finally {
-      if (connection) connection.release();
-    }
-  },
-  
-  /**
-   * Actualizar estado de un comentario
-   */
-  updateCommentStatus: async (req, res) => {
-    let connection;
-    try {
-      connection = await pool.getConnection();
-      
-      const { commentId } = req.params;
-      const { status } = req.body;
-      
-      // Validación
-      if (!status || !['approved', 'pending', 'spam'].includes(status)) {
-        return res.status(400).json({ message: 'Estado de comentario no válido' });
-      }
-      
-      // Verificar que el usuario sea admin o moderador
-      if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
-        return res.status(403).json({ message: 'No tienes permiso para actualizar el estado de comentarios' });
-      }
-      
-      // Verificar que el comentario existe
-      const [comments] = await connection.query(
-        'SELECT * FROM blog_comments WHERE id = ?',
-        [commentId]
-      );
-      
-      if (comments.length === 0) {
-        return res.status(404).json({ message: 'Comentario no encontrado' });
-      }
-      
-      // Actualizar estado
-      await connection.query(
-        'UPDATE blog_comments SET status = ? WHERE id = ?',
-        [status, commentId]
-      );
-      
-      res.json({ 
-        message: `Comentario marcado como ${status}`,
-        status
-      });
-    } catch (error) {
-      console.error('Error al actualizar estado del comentario:', error);
-      res.status(500).json({ message: 'Error al actualizar estado del comentario' });
-    } finally {
-      if (connection) connection.release();
-    }
-  },
-  
-  /**
-   * Eliminar un comentario
-   */
-  deleteComment: async (req, res) => {
-    let connection;
-    try {
-      connection = await pool.getConnection();
-      
-      const { commentId } = req.params;
-      
-      // Verificar que el comentario existe
-      const [comments] = await connection.query(
-        'SELECT * FROM blog_comments WHERE id = ?',
-        [commentId]
-      );
-      
-      if (comments.length === 0) {
-        return res.status(404).json({ message: 'Comentario no encontrado' });
-      }
-      
-      const comment = comments[0];
-      
-      // Comprobar permisos: solo admin, moderador o autor del comentario pueden eliminar
-      const canDelete = 
-        req.user.role === 'admin' ||
-        req.user.role === 'moderator' ||
-        req.user.id === comment.user_id;
-      
-      if (!canDelete) {
-        return res.status(403).json({ message: 'No tienes permiso para eliminar este comentario' });
-      }
-      
-      // Eliminar comentario
-      await connection.query('DELETE FROM blog_comments WHERE id = ?', [commentId]);
-      
-      res.json({ message: 'Comentario eliminado exitosamente' });
-    } catch (error) {
-      console.error('Error al eliminar comentario del blog:', error);
-      res.status(500).json({ message: 'Error al eliminar comentario del blog' });
-    } finally {
-      if (connection) connection.release();
-    }
-  }
-};

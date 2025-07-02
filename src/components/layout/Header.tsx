@@ -17,6 +17,7 @@ export const Header: React.FC = () => {
   const navigation = [
     { name: 'Inicio', href: '/', requiresAuth: false },
     { name: 'Sobre Nosotros', href: '/about', requiresAuth: false },
+    { name: 'Blog', href: '/blog', requiresAuth: false }, // Añadimos el blog para todos los usuarios
     { name: 'Reservas', href: '/reservations', requiresAuth: true },
     { name: 'Productos', href: '/products', requiresAuth: true },
     // Eliminados los enlaces individuales para añadirlos al menú desplegable

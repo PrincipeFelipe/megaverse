@@ -1,4 +1,4 @@
-import { BlogPost, BlogCategory, BlogTag, BlogFilters } from '../types/blog';
+import { BlogPost, BlogComment, BlogCategory, BlogTag, BlogFilters } from '../types/blog';
 import { normalizeNumericValues } from './api';
 
 // Asegurarnos de que la URL base sea consistente
@@ -8,548 +8,12 @@ export const blogService = {
   /**
    * Obtener todas las entradas del blog con filtros opcionales
    * @param filters Filtros opcionales para las entradas del blog
-   * @param isPublicPage Si es true, solo muestra posts publicados (para la página pública)
    */
-  getAllPosts: async (filters?: BlogFilters, isPublicPage = false): Promise<BlogPost[]> => {
+  getAllPosts: async (filters?: BlogFilters): Promise<BlogPost[]> => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      console.log('blogService.getAllPosts - isPublicPage:', isPublicPage);
-      
-      // Construir URL con filtros
-      let url = `${API_URL}/blog/posts`;
-      
-      // Agregar filtros como parámetros de consulta si existen
-      if (filters || isPublicPage) {
-        const params = new URLSearchParams();
-        
-        // Si estamos en la página pública, siempre filtrar por status='published'
-        if (isPublicPage) {
-          console.log('Añadiendo filtro status=published para la página pública');
-          // Forzar el parámetro de status a 'published' para páginas públicas
-          params.append('status', 'published');
-          // Eliminar cualquier otro filtro de status que pudiera existir
-          if (filters?.status) {
-            console.log('Ignorando filtro de status existente:', filters.status);
-          }
-        } else if (filters?.status) {
-          params.append('status', filters.status);
-        }
-        
-        // Resto de filtros
-        if (filters?.category) params.append('category', filters.category);
-        if (filters?.tag) params.append('tag', filters.tag);
-        if (filters?.author_id) params.append('author_id', filters.author_id.toString());
-        if (filters?.search) params.append('search', filters.search);
-        if (filters?.page) params.append('page', filters.page.toString());
-        if (filters?.limit) params.append('limit', filters.limit.toString());
-        if (filters?.sort_by) params.append('sort_by', filters.sort_by);
-        if (filters?.sort_order) params.append('sort_order', filters.sort_order);
-        
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-      }
-      
-      // Log para mostrar la URL completa de la solicitud
-      console.log('Enviando solicitud a:', url);
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al obtener posts: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Log para mostrar cuántos posts se han recibido y sus estados
-      if (data.posts) {
-        console.log(`Recibidos ${data.posts.length} posts del servidor`);
-        console.log('Estados de los posts recibidos:', data.posts.map((p: any) => p.status));
-        
-        // Si estamos en la página pública, asegurarnos de que sólo se devuelven posts publicados
-        if (isPublicPage) {
-          console.log('Filtrando posts para mostrar sólo publicados en el frontend');
-          data.posts = data.posts.filter((post: any) => 
-            post.status && post.status.toLowerCase() === 'published'
-          );
-          console.log(`Después del filtrado: ${data.posts.length} posts`);
-        }
-      }
-      
-      return normalizeNumericValues(data.posts || []);
-    } catch (error: unknown) {
-      console.error('Error en getAllPosts:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Obtener un post por su ID
-   * @param id ID del post
-   */
-  getPostById: async (id: number): Promise<BlogPost> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/posts/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al obtener el post: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return normalizeNumericValues(data.post);
-    } catch (error: unknown) {
-      console.error('Error en getPostById:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Obtener un post por su slug
-   * @param slug Slug del post
-   */
-  getPostBySlug: async (slug: string, isPublicPage = false): Promise<BlogPost> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      // Añadimos el parámetro publicOnly cuando estamos en la página pública
-      let url = `${API_URL}/blog/posts/slug/${slug}`;
-      if (isPublicPage) {
-        url += '?publicOnly=true';
-      }
-      
-      console.log(`Obteniendo post por slug: ${slug}, isPublicPage: ${isPublicPage}`);
-      console.log(`URL: ${url}`);
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al obtener el post: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Si los tags son objetos, aseguramos que BlogPostPage los pueda manejar
-      if (data.post && data.post.tags && Array.isArray(data.post.tags)) {
-        console.log('Tags recibidos:', data.post.tags);
-      }
-      
-      return normalizeNumericValues(data.post);
-    } catch (error: unknown) {
-      console.error('Error en getPostBySlug:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Crear un nuevo post
-   * @param post Datos del post
-   */
-  createPost: async (post: Partial<BlogPost>): Promise<BlogPost> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/posts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(post)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al crear el post: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Mostrar información sobre publicación en redes sociales si está disponible
-      if (data.socialMediaResults && data.socialMediaResults.length > 0) {
-        console.log('Resultados de publicación en redes sociales:', data.socialMediaResults);
-        
-        // Verificar errores en las publicaciones
-        const errors = data.socialMediaResults.filter((result: {success: boolean}) => !result.success);
-        if (errors.length > 0) {
-          console.warn('Algunas publicaciones en redes sociales fallaron:', errors);
-        }
-      }
-      
-      return normalizeNumericValues(data.post);
-    } catch (error: unknown) {
-      console.error('Error en createPost:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Actualizar un post existente
-   * @param id ID del post
-   * @param post Datos actualizados del post
-   */
-  updatePost: async (id: number, post: Partial<BlogPost>): Promise<BlogPost> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      // Asegurar que socialMedia sea un array si está definido
-      if (post.socialMedia && !Array.isArray(post.socialMedia)) {
-        post.socialMedia = [];
-      }
-      
-      const response = await fetch(`${API_URL}/blog/posts/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(post)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al actualizar el post: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Mostrar información sobre publicación en redes sociales si está disponible
-      if (data.socialMediaResults && data.socialMediaResults.length > 0) {
-        console.log('Resultados de publicación en redes sociales:', data.socialMediaResults);
-        
-        // Verificar errores en las publicaciones
-        const errors = data.socialMediaResults.filter((result: {success: boolean}) => !result.success);
-        if (errors.length > 0) {
-          console.warn('Algunas publicaciones en redes sociales fallaron:', errors);
-        }
-      }
-      
-      return normalizeNumericValues(data.post);
-    } catch (error: unknown) {
-      console.error('Error en updatePost:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Eliminar un post
-   * @param id ID del post a eliminar
-   */
-  deletePost: async (id: number): Promise<void> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/posts/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al eliminar el post: ${response.status}`);
-      }
-    } catch (error: unknown) {
-      console.error('Error en deletePost:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Obtener todas las categorías del blog
-   */
-  getAllCategories: async (): Promise<BlogCategory[]> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/categories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al obtener categorías: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return normalizeNumericValues(data.categories || []);
-    } catch (error: unknown) {
-      console.error('Error en getAllCategories:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Crear una nueva categoría
-   * @param category Datos de la categoría
-   */
-  createCategory: async (category: Partial<BlogCategory>): Promise<BlogCategory> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/categories`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(category)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al crear la categoría: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return normalizeNumericValues(data.category);
-    } catch (error: unknown) {
-      console.error('Error en createCategory:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Actualizar una categoría existente
-   * @param id ID de la categoría
-   * @param category Datos actualizados de la categoría
-   */
-  updateCategory: async (id: number, category: Partial<BlogCategory>): Promise<BlogCategory> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/categories/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(category)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al actualizar la categoría: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return normalizeNumericValues(data.category);
-    } catch (error: unknown) {
-      console.error('Error en updateCategory:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Eliminar una categoría
-   * @param id ID de la categoría a eliminar
-   */
-  deleteCategory: async (id: number): Promise<void> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/categories/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al eliminar la categoría: ${response.status}`);
-      }
-    } catch (error: unknown) {
-      console.error('Error en deleteCategory:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Obtener todos los tags del blog
-   */
-  getAllTags: async (): Promise<BlogTag[]> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/tags`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al obtener etiquetas: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return normalizeNumericValues(data.tags || []);
-    } catch (error: unknown) {
-      console.error('Error en getAllTags:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Crear un nuevo tag
-   * @param tag Datos del tag
-   */
-  createTag: async (tag: Partial<BlogTag>): Promise<BlogTag> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/tags`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(tag)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al crear la etiqueta: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return normalizeNumericValues(data.tag);
-    } catch (error: unknown) {
-      console.error('Error en createTag:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Actualizar un tag existente
-   * @param id ID del tag
-   * @param tag Datos actualizados del tag
-   */
-  updateTag: async (id: number, tag: Partial<BlogTag>): Promise<BlogTag> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/tags/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(tag)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al actualizar la etiqueta: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return normalizeNumericValues(data.tag);
-    } catch (error: unknown) {
-      console.error('Error en updateTag:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-  /**
-   * Eliminar un tag
-   * @param id ID del tag a eliminar
-   */
-  deleteTag: async (id: number): Promise<void> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/tags/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error al eliminar la etiqueta: ${response.status}`);
-      }
-    } catch (error: unknown) {
-      console.error('Error en deleteTag:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
-    }
-  },
-  
-
-  
-  /**
-   * Obtener posts paginados con filtros opcionales
-   * @param filters Filtros opcionales para las entradas del blog
-   */
-  getPosts: async (filters?: BlogFilters): Promise<{posts: BlogPost[], totalPages: number}> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
+        throw new Error('Se requiere autenticación para acceder al blog');
       }
       
       // Construir URL con filtros
@@ -580,7 +44,613 @@ export const blogService = {
       });
       
       if (!response.ok) {
-        throw new Error(`Error al obtener posts: ${response.status}`);
+        throw new Error(`Error al obtener entradas del blog: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.posts || []);
+    } catch (error: unknown) {
+      console.error('Error en getAllPosts:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener entradas del blog');
+    }
+  },
+  
+  /**
+   * Obtener una entrada del blog por su ID
+   * @param id ID de la entrada del blog
+   */
+  getPostById: async (id: number): Promise<BlogPost> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder al blog');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener la entrada del blog: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.post);
+    } catch (error: unknown) {
+      console.error('Error en getPostById:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener la entrada del blog');
+    }
+  },
+  
+  /**
+   * Obtener una entrada del blog por su slug
+   * @param slug Slug de la entrada del blog
+   */
+  getPostBySlug: async (slug: string): Promise<BlogPost> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder al blog');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/slug/${slug}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener la entrada del blog: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.post);
+    } catch (error: unknown) {
+      console.error('Error en getPostBySlug:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener la entrada del blog');
+    }
+  },
+  
+  /**
+   * Crear una nueva entrada de blog
+   * @param post Datos de la entrada del blog
+   */
+  createPost: async (post: Partial<BlogPost>): Promise<BlogPost> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para crear una entrada del blog');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(post)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al crear la entrada del blog: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.post);
+    } catch (error: unknown) {
+      console.error('Error en createPost:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al crear la entrada del blog');
+    }
+  },
+  
+  /**
+   * Actualizar una entrada del blog existente
+   * @param id ID de la entrada del blog
+   * @param post Datos actualizados de la entrada del blog
+   */
+  updatePost: async (id: number, post: Partial<BlogPost>): Promise<BlogPost> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para actualizar una entrada del blog');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(post)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al actualizar la entrada del blog: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.post);
+    } catch (error: unknown) {
+      console.error('Error en updatePost:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al actualizar la entrada del blog');
+    }
+  },
+  
+  /**
+   * Eliminar una entrada del blog
+   * @param id ID de la entrada del blog a eliminar
+   */
+  deletePost: async (id: number): Promise<void> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para eliminar una entrada del blog');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al eliminar la entrada del blog: ${response.status}`);
+      }
+    } catch (error: unknown) {
+      console.error('Error en deletePost:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al eliminar la entrada del blog');
+    }
+  },
+  
+  /**
+   * Obtener todas las categorías del blog
+   */
+  getAllCategories: async (): Promise<BlogCategory[]> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder a las categorías del blog');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener categorías del blog: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.categories || []);
+    } catch (error: unknown) {
+      console.error('Error en getAllCategories:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener categorías del blog');
+    }
+  },
+  
+  /**
+   * Obtener una categoría por su ID
+   * @param id ID de la categoría
+   */
+  getCategoryById: async (id: number): Promise<BlogCategory> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder a la categoría');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/categories/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener la categoría: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.category);
+    } catch (error: unknown) {
+      console.error('Error en getCategoryById:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener la categoría');
+    }
+  },
+  
+  /**
+   * Crear una nueva categoría
+   * @param category Datos de la categoría
+   */
+  createCategory: async (category: Partial<BlogCategory>): Promise<BlogCategory> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para crear una categoría');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(category)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al crear la categoría: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.category);
+    } catch (error: unknown) {
+      console.error('Error en createCategory:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al crear la categoría');
+    }
+  },
+  
+  /**
+   * Actualizar una categoría existente
+   * @param id ID de la categoría
+   * @param category Datos actualizados de la categoría
+   */
+  updateCategory: async (id: number, category: Partial<BlogCategory>): Promise<BlogCategory> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para actualizar una categoría');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/categories/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(category)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al actualizar la categoría: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.category);
+    } catch (error: unknown) {
+      console.error('Error en updateCategory:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al actualizar la categoría');
+    }
+  },
+  
+  /**
+   * Eliminar una categoría
+   * @param id ID de la categoría a eliminar
+   */
+  deleteCategory: async (id: number): Promise<void> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para eliminar una categoría');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/categories/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al eliminar la categoría: ${response.status}`);
+      }
+    } catch (error: unknown) {
+      console.error('Error en deleteCategory:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al eliminar la categoría');
+    }
+  },
+  
+  /**
+   * Obtener todos los tags del blog
+   */
+  getAllTags: async (): Promise<BlogTag[]> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder a los tags del blog');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/tags`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener tags del blog: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.tags || []);
+    } catch (error: unknown) {
+      console.error('Error en getAllTags:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener tags del blog');
+    }
+  },
+  
+  /**
+   * Obtener un tag por su ID
+   * @param id ID del tag
+   */
+  getTagById: async (id: number): Promise<BlogTag> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder al tag');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/tags/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener el tag: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.tag);
+    } catch (error: unknown) {
+      console.error('Error en getTagById:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener el tag');
+    }
+  },
+  
+  /**
+   * Crear un nuevo tag
+   * @param tag Datos del tag
+   */
+  createTag: async (tag: Partial<BlogTag>): Promise<BlogTag> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para crear un tag');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/tags`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(tag)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al crear el tag: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.tag);
+    } catch (error: unknown) {
+      console.error('Error en createTag:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al crear el tag');
+    }
+  },
+  
+  /**
+   * Actualizar un tag existente
+   * @param id ID del tag
+   * @param tag Datos actualizados del tag
+   */
+  updateTag: async (id: number, tag: Partial<BlogTag>): Promise<BlogTag> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para actualizar un tag');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/tags/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(tag)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al actualizar el tag: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.tag);
+    } catch (error: unknown) {
+      console.error('Error en updateTag:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al actualizar el tag');
+    }
+  },
+  
+  /**
+   * Eliminar un tag
+   * @param id ID del tag a eliminar
+   */
+  deleteTag: async (id: number): Promise<void> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para eliminar un tag');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/tags/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al eliminar el tag: ${response.status}`);
+      }
+    } catch (error: unknown) {
+      console.error('Error en deleteTag:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al eliminar el tag');
+    }
+  },
+  
+  /**
+   * Obtener comentarios de una entrada del blog
+   * @param postId ID de la entrada del blog
+   */
+  getCommentsByPostId: async (postId: number): Promise<BlogComment[]> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder a los comentarios');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/${postId}/comments`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener comentarios: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.comments || []);
+    } catch (error: unknown) {
+      console.error('Error en getCommentsByPostId:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al obtener comentarios');
+    }
+  },
+  
+  /**
+   * Crear un nuevo comentario en una entrada del blog
+   * @param postId ID de la entrada del blog
+   * @param content Contenido del comentario
+   */
+  createComment: async (postId: number, content: string): Promise<BlogComment> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para crear un comentario');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al crear el comentario: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.comment);
+    } catch (error: unknown) {
+      console.error('Error en createComment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al crear el comentario');
+    }
+  },
+  
+  /**
+   * Eliminar un comentario
+   * @param commentId ID del comentario a eliminar
+   */
+  deleteComment: async (commentId: number): Promise<void> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para eliminar un comentario');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al eliminar el comentario: ${response.status}`);
+      }
+    } catch (error: unknown) {
+      console.error('Error en deleteComment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage || 'Error al eliminar el comentario');
+    }
+  },
+  
+  /**
+   * Obtener posts paginados con filtros opcionales
+   * @param filters Filtros opcionales para las entradas del blog
+   */
+  getPosts: async (filters?: BlogFilters): Promise<{posts: BlogPost[], totalPages: number}> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación para acceder al blog');
+      }
+      
+      // Construir URL con filtros
+      let url = `${API_URL}/blog/posts`;
+      
+      // Agregar filtros como parámetros de consulta si existen
+      if (filters) {
+        const params = new URLSearchParams();
+        if (filters.category) params.append('category', filters.category);
+        if (filters.tag) params.append('tag', filters.tag);
+        if (filters.author_id) params.append('author_id', filters.author_id.toString());
+        if (filters.search) params.append('search', filters.search);
+        if (filters.status) params.append('status', filters.status);
+        if (filters.page) params.append('page', filters.page.toString());
+        if (filters.limit) params.append('limit', filters.limit.toString());
+        if (filters.sort_by) params.append('sort_by', filters.sort_by);
+        if (filters.sort_order) params.append('sort_order', filters.sort_order);
+        
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener entradas del blog: ${response.status}`);
       }
       
       const data = await response.json();
@@ -591,7 +661,7 @@ export const blogService = {
     } catch (error: unknown) {
       console.error('Error en getPosts:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      throw new Error(errorMessage);
+      throw new Error(errorMessage || 'Error al obtener entradas del blog');
     }
   }
 };

@@ -1,7 +1,7 @@
-import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { pool } from '../config/database.js';
+import multer from 'multer';
 
 // Configurar el almacenamiento de multer para los avatares
 const avatarStorage = multer.diskStorage({
@@ -40,6 +40,31 @@ const avatarStorage = multer.diskStorage({
   }
 });
 
+// Configurar el almacenamiento de multer para las imágenes del blog
+const blogImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(process.cwd(), 'uploads', 'blog');
+    
+    // Crear directorio si no existe
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`Directorio creado: ${dir}`);
+    }
+    
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    // Generar un nombre único basado en timestamp y un número aleatorio
+    const timestamp = Date.now();
+    const randomNum = Math.floor(Math.random() * 10000);
+    const fileExt = path.extname(file.originalname).toLowerCase();
+    
+    // Crear un nombre de archivo único para evitar colisiones
+    const filename = `blog_${timestamp}_${randomNum}${fileExt}`;
+    cb(null, filename);
+  }
+});
+
 // Filtro para aceptar solo imágenes
 const imageFilter = (req, file, cb) => {
   // Lista de tipos MIME permitidos
@@ -65,15 +90,19 @@ const imageFilter = (req, file, cb) => {
   cb(new Error('Solo se permiten archivos de imagen en formato JPEG, PNG, GIF o WebP'));
 };
 
-// Configuración de subida de avatares
+// Configurar Multer para avatares
 export const uploadAvatar = multer({
   storage: avatarStorage,
-  limits: { 
-    fileSize: 5 * 1024 * 1024, // Límite de 5MB
-    files: 1 // Máximo 1 archivo
-  },
-  fileFilter: imageFilter
+  fileFilter: imageFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 }).single('avatar');
+
+// Configurar Multer para imágenes del blog
+export const uploadBlogImage = multer({
+  storage: blogImageStorage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+}).single('blogImage');
 
 // Controlador para subir un avatar
 export const uploadUserAvatar = async (req, res) => {
@@ -184,5 +213,120 @@ export const deleteUserAvatar = async (req, res) => {
   } catch (error) {
     console.error('Error al eliminar avatar:', error);
     return res.status(500).json({ error: 'Error del servidor al eliminar avatar' });
+  }
+};
+
+// Manejar la subida de una imagen para el blog usando express-fileupload
+export const uploadBlogImageHandler = async (req, res) => {
+  try {
+    console.log('Recibiendo solicitud de subida de imagen para blog');
+    console.log('Datos de la solicitud:', { 
+      method: req.method,
+      contentType: req.get('Content-Type'),
+      hasFiles: !!req.files,
+      filesKeys: req.files ? Object.keys(req.files) : []
+    });
+    
+    if (!req.files || !req.files.blogImage) {
+      console.error('Error: No se proporcionó ninguna imagen');
+      return res.status(400).json({ message: 'No se proporcionó ninguna imagen' });
+    }
+
+    // Verificar permisos - solo admin y editores pueden subir imágenes
+    if (req.user.role !== 'admin' && req.user.role !== 'editor') {
+      console.error(`Error: Usuario ${req.user.id} con rol ${req.user.role} no tiene permisos para subir imágenes`);
+      return res.status(403).json({ message: 'No tiene permisos para subir imágenes' });
+    }
+
+    const file = req.files.blogImage;
+    console.log('Archivo recibido:', { 
+      name: file.name,
+      size: `${(file.size/1024).toFixed(2)} KB`,
+      mimetype: file.mimetype
+    });
+    
+    // Verificar que sea una imagen
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      return res.status(400).json({ message: 'El archivo debe ser una imagen válida (JPEG, PNG, GIF, WEBP)' });
+    }
+    
+    // Verificar tamaño (máximo 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return res.status(400).json({ message: 'La imagen excede el tamaño máximo permitido (10MB)' });
+    }
+
+    // Generar un nombre único para el archivo
+    const timestamp = Date.now();
+    const randomNum = Math.floor(Math.random() * 10000);
+    const fileExt = path.extname(file.name).toLowerCase();
+    const filename = `blog_${timestamp}_${randomNum}${fileExt}`;
+    
+    // Ruta donde se guardará el archivo
+    const uploadPath = path.join(process.cwd(), 'uploads', 'blog', filename);
+    
+    // Mover el archivo a la carpeta de destino
+    await file.mv(uploadPath);
+    
+    // Construir la URL del archivo (relativa al servidor)
+    const fileUrl = `/uploads/blog/${filename}`;
+    
+    // Registrar en el log
+    console.log(`Imagen de blog subida: ${filename} por usuario ${req.user.id} (${req.user.username || req.user.email})`);
+    
+    // Devolver la URL de la imagen y otros detalles
+    res.json({
+      message: 'Imagen subida exitosamente',
+      file: {
+        url: fileUrl,
+        filename: filename,
+        originalname: file.name,
+        size: file.size,
+        mimetype: file.mimetype
+      }
+    });
+  } catch (error) {
+    console.error('Error al subir imagen de blog:', error);
+    res.status(500).json({ message: 'Error al subir la imagen' });
+  }
+};
+
+// Eliminar una imagen del blog
+export const deleteBlogImage = async (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    console.log(`Solicitud para eliminar imagen de blog: ${filename} por usuario ${req.user.id} (${req.user.username || req.user.email})`);
+    
+    // Verificar que el formato del nombre de archivo es correcto para evitar exploits
+    if (!filename || !filename.startsWith('blog_') || filename.includes('..')) {
+      console.warn(`Intento de eliminación con nombre de archivo inválido: ${filename}`);
+      return res.status(400).json({ message: 'Nombre de archivo inválido' });
+    }
+    
+    // Verificar permisos
+    if (req.user.role !== 'admin' && req.user.role !== 'editor') {
+      console.warn(`Usuario sin permisos intenta eliminar imagen: ${req.user.id} (${req.user.role})`);
+      return res.status(403).json({ message: 'No tiene permisos para eliminar imágenes' });
+    }
+    
+    const filepath = path.join(process.cwd(), 'uploads', 'blog', filename);
+    console.log(`Ruta completa del archivo a eliminar: ${filepath}`);
+    
+    // Verificar si el archivo existe
+    if (!fs.existsSync(filepath)) {
+      console.warn(`Archivo no encontrado al intentar eliminar: ${filepath}`);
+      return res.status(404).json({ message: 'Imagen no encontrada' });
+    }
+    
+    // Eliminar el archivo
+    fs.unlinkSync(filepath);
+    console.log(`Imagen de blog eliminada con éxito: ${filename} por usuario ${req.user.id} (${req.user.username || req.user.email})`);
+    
+    res.json({ message: 'Imagen eliminada exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar imagen de blog:', error);
+    res.status(500).json({ message: 'Error al eliminar la imagen' });
   }
 };

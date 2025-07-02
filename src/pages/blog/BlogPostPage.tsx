@@ -1,7 +1,5 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Header } from '../../components/layout/Header';
-import { Footer } from '../../components/layout/Footer';
 import { Button } from '../../components/ui/Button';
 import { blogService } from '../../services/blogService';
 import { BlogPost } from '../../types/blog';
@@ -23,7 +21,8 @@ const BlogPostPage: React.FC = () => {
       setError(null);
       
       try {
-        const data = await blogService.getPostBySlug(slug);
+        // Pasamos true para indicar que estamos en la página pública
+        const data = await blogService.getPostBySlug(slug, true);
         setPost(data);
       } catch (error: unknown) {
         console.error('Error al cargar el post:', error);
@@ -53,18 +52,15 @@ const BlogPostPage: React.FC = () => {
   };
   
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <Button
-          onClick={handleGoBack}
-          variant="ghost"
-          className="mb-6 flex items-center gap-1"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Volver al blog
-        </Button>
+    <div className="container mx-auto px-4 py-8">
+      <Button
+        onClick={handleGoBack}
+        variant="ghost"
+        className="mb-6 flex items-center gap-1"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Volver al blog
+      </Button>
         
         {loading ? (
           // Esqueleto de carga
@@ -90,7 +86,7 @@ const BlogPostPage: React.FC = () => {
               onClick={() => {
                 if (slug) {
                   setLoading(true);
-                  blogService.getPostBySlug(slug)
+                  blogService.getPostBySlug(slug, true)
                     .then(data => setPost(data))
                     .catch(err => setError(err.message || 'Error al cargar el post'))
                     .finally(() => setLoading(false));
@@ -141,18 +137,32 @@ const BlogPostPage: React.FC = () => {
             </div>
             
             {/* Pie de artículo */}
-            <footer className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-              {post.tags && post.tags.length > 0 && (
+            <footer className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">                {post.tags && post.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-6">
                   <Tag className="w-4 h-4 mt-1" />
-                  {post.tags.map((tag: string, index: number) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+                  {post.tags.map((tag, index: number) => {
+                    // Determinar el texto a mostrar según el tipo de tag
+                    let tagText: string;
+                    if (typeof tag === 'string') {
+                      tagText = tag;
+                    } else if (typeof tag === 'number') {
+                      tagText = `#${tag}`;
+                    } else if (tag && typeof tag === 'object') {
+                      // Si es un objeto, usamos la propiedad name o slug
+                      tagText = tag.name || tag.slug || 'Tag desconocido';
+                    } else {
+                      tagText = 'Tag desconocido';
+                    }
+                    
+                    return (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm"
+                      >
+                        {tagText}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
               
@@ -163,14 +173,6 @@ const BlogPostPage: React.FC = () => {
                 </Button>
               </div>
             </footer>
-            
-            {/* Comentarios - Se implementarán en el futuro */}
-            <section className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold mb-6">Comentarios</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                La sección de comentarios estará disponible próximamente.
-              </p>
-            </section>
           </article>
         ) : (
           <div className="p-6 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-center">
@@ -179,9 +181,6 @@ const BlogPostPage: React.FC = () => {
             </p>
           </div>
         )}
-      </main>
-      
-      <Footer />
     </div>
   );
 };

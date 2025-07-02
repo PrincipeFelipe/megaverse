@@ -1,4 +1,4 @@
-import { BlogPost, BlogCategory, BlogTag, BlogFilters } from '../types/blog';
+import { BlogPost, BlogComment, BlogCategory, BlogTag, BlogFilters } from '../types/blog';
 import { normalizeNumericValues } from './api';
 
 // Asegurarnos de que la URL base sea consistente
@@ -8,54 +8,34 @@ export const blogService = {
   /**
    * Obtener todas las entradas del blog con filtros opcionales
    * @param filters Filtros opcionales para las entradas del blog
-   * @param isPublicPage Si es true, solo muestra posts publicados (para la página pública)
    */
-  getAllPosts: async (filters?: BlogFilters, isPublicPage = false): Promise<BlogPost[]> => {
+  getAllPosts: async (filters?: BlogFilters): Promise<BlogPost[]> => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('Se requiere autenticación');
       }
       
-      console.log('blogService.getAllPosts - isPublicPage:', isPublicPage);
-      
       // Construir URL con filtros
       let url = `${API_URL}/blog/posts`;
       
       // Agregar filtros como parámetros de consulta si existen
-      if (filters || isPublicPage) {
+      if (filters) {
         const params = new URLSearchParams();
-        
-        // Si estamos en la página pública, siempre filtrar por status='published'
-        if (isPublicPage) {
-          console.log('Añadiendo filtro status=published para la página pública');
-          // Forzar el parámetro de status a 'published' para páginas públicas
-          params.append('status', 'published');
-          // Eliminar cualquier otro filtro de status que pudiera existir
-          if (filters?.status) {
-            console.log('Ignorando filtro de status existente:', filters.status);
-          }
-        } else if (filters?.status) {
-          params.append('status', filters.status);
-        }
-        
-        // Resto de filtros
-        if (filters?.category) params.append('category', filters.category);
-        if (filters?.tag) params.append('tag', filters.tag);
-        if (filters?.author_id) params.append('author_id', filters.author_id.toString());
-        if (filters?.search) params.append('search', filters.search);
-        if (filters?.page) params.append('page', filters.page.toString());
-        if (filters?.limit) params.append('limit', filters.limit.toString());
-        if (filters?.sort_by) params.append('sort_by', filters.sort_by);
-        if (filters?.sort_order) params.append('sort_order', filters.sort_order);
+        if (filters.category) params.append('category', filters.category);
+        if (filters.tag) params.append('tag', filters.tag);
+        if (filters.author_id) params.append('author_id', filters.author_id.toString());
+        if (filters.search) params.append('search', filters.search);
+        if (filters.status) params.append('status', filters.status);
+        if (filters.page) params.append('page', filters.page.toString());
+        if (filters.limit) params.append('limit', filters.limit.toString());
+        if (filters.sort_by) params.append('sort_by', filters.sort_by);
+        if (filters.sort_order) params.append('sort_order', filters.sort_order);
         
         if (params.toString()) {
           url += `?${params.toString()}`;
         }
       }
-      
-      // Log para mostrar la URL completa de la solicitud
-      console.log('Enviando solicitud a:', url);
       
       const response = await fetch(url, {
         headers: {
@@ -68,22 +48,6 @@ export const blogService = {
       }
       
       const data = await response.json();
-      
-      // Log para mostrar cuántos posts se han recibido y sus estados
-      if (data.posts) {
-        console.log(`Recibidos ${data.posts.length} posts del servidor`);
-        console.log('Estados de los posts recibidos:', data.posts.map((p: any) => p.status));
-        
-        // Si estamos en la página pública, asegurarnos de que sólo se devuelven posts publicados
-        if (isPublicPage) {
-          console.log('Filtrando posts para mostrar sólo publicados en el frontend');
-          data.posts = data.posts.filter((post: any) => 
-            post.status && post.status.toLowerCase() === 'published'
-          );
-          console.log(`Después del filtrado: ${data.posts.length} posts`);
-        }
-      }
-      
       return normalizeNumericValues(data.posts || []);
     } catch (error: unknown) {
       console.error('Error en getAllPosts:', error);
@@ -126,23 +90,14 @@ export const blogService = {
    * Obtener un post por su slug
    * @param slug Slug del post
    */
-  getPostBySlug: async (slug: string, isPublicPage = false): Promise<BlogPost> => {
+  getPostBySlug: async (slug: string): Promise<BlogPost> => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('Se requiere autenticación');
       }
       
-      // Añadimos el parámetro publicOnly cuando estamos en la página pública
-      let url = `${API_URL}/blog/posts/slug/${slug}`;
-      if (isPublicPage) {
-        url += '?publicOnly=true';
-      }
-      
-      console.log(`Obteniendo post por slug: ${slug}, isPublicPage: ${isPublicPage}`);
-      console.log(`URL: ${url}`);
-      
-      const response = await fetch(url, {
+      const response = await fetch(`${API_URL}/blog/posts/slug/${slug}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -153,12 +108,6 @@ export const blogService = {
       }
       
       const data = await response.json();
-      
-      // Si los tags son objetos, aseguramos que BlogPostPage los pueda manejar
-      if (data.post && data.post.tags && Array.isArray(data.post.tags)) {
-        console.log('Tags recibidos:', data.post.tags);
-      }
-      
       return normalizeNumericValues(data.post);
     } catch (error: unknown) {
       console.error('Error en getPostBySlug:', error);
@@ -192,18 +141,6 @@ export const blogService = {
       }
       
       const data = await response.json();
-      
-      // Mostrar información sobre publicación en redes sociales si está disponible
-      if (data.socialMediaResults && data.socialMediaResults.length > 0) {
-        console.log('Resultados de publicación en redes sociales:', data.socialMediaResults);
-        
-        // Verificar errores en las publicaciones
-        const errors = data.socialMediaResults.filter((result: {success: boolean}) => !result.success);
-        if (errors.length > 0) {
-          console.warn('Algunas publicaciones en redes sociales fallaron:', errors);
-        }
-      }
-      
       return normalizeNumericValues(data.post);
     } catch (error: unknown) {
       console.error('Error en createPost:', error);
@@ -224,11 +161,6 @@ export const blogService = {
         throw new Error('Se requiere autenticación');
       }
       
-      // Asegurar que socialMedia sea un array si está definido
-      if (post.socialMedia && !Array.isArray(post.socialMedia)) {
-        post.socialMedia = [];
-      }
-      
       const response = await fetch(`${API_URL}/blog/posts/${id}`, {
         method: 'PUT',
         headers: {
@@ -243,18 +175,6 @@ export const blogService = {
       }
       
       const data = await response.json();
-      
-      // Mostrar información sobre publicación en redes sociales si está disponible
-      if (data.socialMediaResults && data.socialMediaResults.length > 0) {
-        console.log('Resultados de publicación en redes sociales:', data.socialMediaResults);
-        
-        // Verificar errores en las publicaciones
-        const errors = data.socialMediaResults.filter((result: {success: boolean}) => !result.success);
-        if (errors.length > 0) {
-          console.warn('Algunas publicaciones en redes sociales fallaron:', errors);
-        }
-      }
-      
       return normalizeNumericValues(data.post);
     } catch (error: unknown) {
       console.error('Error en updatePost:', error);
@@ -539,7 +459,97 @@ export const blogService = {
     }
   },
   
-
+  /**
+   * Obtener comentarios de un post
+   * @param postId ID del post
+   */
+  getCommentsByPostId: async (postId: number): Promise<BlogComment[]> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/${postId}/comments`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener comentarios: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.comments || []);
+    } catch (error: unknown) {
+      console.error('Error en getCommentsByPostId:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage);
+    }
+  },
+  
+  /**
+   * Crear un nuevo comentario
+   * @param postId ID del post
+   * @param content Contenido del comentario
+   */
+  createComment: async (postId: number, content: string): Promise<BlogComment> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al crear el comentario: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return normalizeNumericValues(data.comment);
+    } catch (error: unknown) {
+      console.error('Error en createComment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage);
+    }
+  },
+  
+  /**
+   * Eliminar un comentario
+   * @param commentId ID del comentario a eliminar
+   */
+  deleteComment: async (commentId: number): Promise<void> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Se requiere autenticación');
+      }
+      
+      const response = await fetch(`${API_URL}/blog/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al eliminar el comentario: ${response.status}`);
+      }
+    } catch (error: unknown) {
+      console.error('Error en deleteComment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      throw new Error(errorMessage);
+    }
+  },
   
   /**
    * Obtener posts paginados con filtros opcionales

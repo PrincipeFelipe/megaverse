@@ -1,6 +1,6 @@
 import React from 'react';
 import { BlogPost } from '../../types/blog';
-import { Calendar, User, MessageSquare } from 'lucide-react';
+import { Calendar, User } from 'lucide-react';
 import { formatLongDate } from '../../utils/formatters';
 
 interface BlogPostCardProps {
@@ -49,18 +49,9 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({ post, onClick }) => 
             <span>{formatLongDate(post.created_at)}</span>
           </div>
           
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center text-gray-500 dark:text-gray-400">
-              <User className="w-3 h-3 mr-1" />
-              <span>{post.author_name}</span>
-            </div>
-            
-            {post.comments_count !== undefined && (
-              <div className="flex items-center text-gray-500 dark:text-gray-400">
-                <MessageSquare className="w-3 h-3 mr-1" />
-                <span>{post.comments_count}</span>
-              </div>
-            )}
+          <div className="flex items-center text-gray-500 dark:text-gray-400">
+            <User className="w-3 h-3 mr-1" />
+            <span>{post.author_name}</span>
           </div>
         </div>
       </div>

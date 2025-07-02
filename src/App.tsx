@@ -47,6 +47,9 @@ import { ConsumptionPaymentsPage } from './pages/admin/ConsumptionPaymentsPage';
 // Documentación
 import DocumentsPage from './pages/admin/DocumentsPage';
 
+// Blog Admin
+import AdminBlogPage from './pages/admin/blog/AdminBlogPage';
+
 // Blog Pages
 import BlogPage from './pages/blog/BlogPage';
 import BlogPostPage from './pages/blog/BlogPostPage';
@@ -240,22 +243,24 @@ const AppContent: React.FC = () => {
               } 
             />
 
+            {/* Ruta para Blog Admin */}
+            <Route 
+              path="/admin/blog" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminBlogPage />
+                </AdminProtectedRoute>
+              } 
+            />
+
             {/* Rutas del Blog */}
             <Route
               path="/blog"
-              element={
-                <ProtectedRoute>
-                  <BlogPage />
-                </ProtectedRoute>
-              }
+              element={<BlogPage />}
             />
             <Route
               path="/blog/:slug"
-              element={
-                <ProtectedRoute>
-                  <BlogPostPage />
-                </ProtectedRoute>
-              }
+              element={<BlogPostPage />}
             />
           </Routes>
         </main>

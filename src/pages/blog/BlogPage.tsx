@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header } from '../../components/layout/Header';
-import { Footer } from '../../components/layout/Footer';
 import { blogService } from '../../services/blogService';
 import { BlogPost, BlogCategory, BlogTag } from '../../types/blog';
 import { BlogFilters } from '../../components/blog/BlogFilters';
@@ -49,7 +47,10 @@ const BlogPage: React.FC = () => {
     setError(null);
     
     try {
-      const response = await blogService.getAllPosts(filters);
+      console.log('BlogPage - fetchPosts - Llamando a getAllPosts con isPublicPage=true');
+      // Pasar true como segundo parámetro para indicar que es la página pública
+      // y solo mostrar posts publicados
+      const response = await blogService.getAllPosts(filters, true);
       
       if (response && 'posts' in response && 'pagination' in response) {
         // Si la API devuelve datos de paginación
@@ -101,6 +102,7 @@ const BlogPage: React.FC = () => {
     tag: string;
     search: string;
   }) => {
+    console.log('Aplicando filtros, manteniendo isPublicPage=true');
     setFilters(prev => ({
       ...prev,
       ...newFilters,
@@ -114,47 +116,41 @@ const BlogPage: React.FC = () => {
   };
   
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Blog de la Asociación</h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Últimas noticias, eventos y artículos relacionados con nuestra comunidad
+        </p>
+      </div>
       
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Blog de la Asociación</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Últimas noticias, eventos y artículos relacionados con nuestra comunidad
-          </p>
-        </div>
-        
-        {/* Filtros */}
-        <BlogFilters 
-          categories={categories}
-          tags={tags}
-          initialFilters={{
-            category: filters.category,
-            tag: filters.tag,
-            search: filters.search
-          }}
-          onFilterChange={handleFilterChange}
-        />
-        
-        {/* Lista de posts */}
-        <BlogPostList 
-          posts={posts}
-          loading={loading}
-          error={error}
-          onRetry={fetchPosts}
-          onPostClick={handleViewPost}
-          pagination={{
-            total: pagination.total,
-            page: pagination.page,
-            limit: pagination.limit,
-            pages: pagination.pages
-          }}
-          onPageChange={handlePageChange}
-        />
-      </main>
+      {/* Filtros */}
+      <BlogFilters 
+        categories={categories}
+        tags={tags}
+        initialFilters={{
+          category: filters.category,
+          tag: filters.tag,
+          search: filters.search
+        }}
+        onFilterChange={handleFilterChange}
+      />
       
-      <Footer />
+      {/* Lista de posts */}
+      <BlogPostList 
+        posts={posts}
+        loading={loading}
+        error={error}
+        onRetry={fetchPosts}
+        onPostClick={handleViewPost}
+        pagination={{
+          total: pagination.total,
+          page: pagination.page,
+          limit: pagination.limit,
+          pages: pagination.pages
+        }}
+        onPageChange={handlePageChange}
+      />
     </div>
   );
 };

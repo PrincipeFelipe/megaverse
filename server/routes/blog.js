@@ -2,8 +2,7 @@ import express from 'express';
 import { 
   blogPostsController,
   blogCategoriesController, 
-  blogTagsController,
-  blogCommentsController
+  blogTagsController
 } from '../controllers/blog.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -29,10 +28,6 @@ router.post('/tags', authenticateToken, blogTagsController.createTag);
 router.put('/tags/:id', authenticateToken, blogTagsController.updateTag);
 router.delete('/tags/:id', authenticateToken, blogTagsController.deleteTag);
 
-// Rutas para comentarios
-router.get('/posts/:postId/comments', authenticateToken, blogCommentsController.getCommentsByPostId);
-router.post('/posts/:postId/comments', authenticateToken, blogCommentsController.createComment);
-router.patch('/comments/:commentId/status', authenticateToken, blogCommentsController.updateCommentStatus);
-router.delete('/comments/:commentId', authenticateToken, blogCommentsController.deleteComment);
+// Las rutas para comentarios han sido eliminadas
 
 export default router;

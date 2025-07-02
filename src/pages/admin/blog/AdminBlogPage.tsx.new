@@ -1,0 +1,116 @@
+import React, { useState, useEffect } from 'react';
+import { AdminLayout } from '../../../components/admin/AdminLayout';
+import { BlogPost } from '../../../types/blog';
+import { blogService } from '../../../services/blogService';
+import { Link } from 'react-router-dom';
+import { Blog } from '../../../utils/BlogIcon';
+
+const AdminBlogPage: React.FC = () => {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true);
+      try {
+        const allPosts = await blogService.getAllPosts();
+        setPosts(allPosts);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error al cargar posts:', err);
+        setError(`Error al cargar los posts: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
+  }, []);
+
+
+
+  return (
+    <AdminLayout title="Administración de Blog">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Blog className="w-6 h-6 mr-2 text-primary-500" />
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Gestión del Blog</h1>
+          </div>
+          <div>
+            <Link to="/blog" target="_blank" className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition">
+              Ver Blog
+            </Link>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+          </div>
+        ) : error ? (
+          <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
+            {error}
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-dark-800 rounded-lg shadow">
+            <div className="p-4 border-b border-gray-200 dark:border-dark-700">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                Publicaciones Recientes
+              </h2>
+            </div>
+            <div className="divide-y divide-gray-200 dark:divide-dark-700">
+              {posts.length === 0 ? (
+                <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                  No hay publicaciones disponibles.
+                </div>
+              ) : (
+                posts.map((post) => (
+                  <div key={post.id} className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                          {post.title}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(post.created_at).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                          {' - '}{post.category}{' - '}
+                          <span className={`${
+                            post.status === 'published' ? 'text-green-500' : 'text-yellow-500'
+                          }`}>
+                            {post.status === 'published' ? 'Publicado' : 'Borrador'}
+                          </span>
+                        </p>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                          {post.excerpt}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Link to={`/blog/${post.slug}`} target="_blank" className="px-3 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 dark:bg-primary-900/30 dark:text-primary-400 transition">
+                          Ver
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6">
+          <p className="text-gray-600 dark:text-gray-400">
+            La administración completa del blog está en desarrollo. Pronto podrás crear, editar y eliminar posts, categorías y etiquetas directamente desde este panel.
+          </p>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+};
+
+export default AdminBlogPage;

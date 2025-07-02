@@ -49,6 +49,15 @@ app.use(fileUpload({
 app.use('/uploads', express.static('uploads'));
 // También servir desde /api/uploads para compatibilidad
 app.use('/api/uploads', express.static('uploads'));
+
+// Crear directorio para imágenes del blog si no existe
+const blogImagesDir = path.join(process.cwd(), 'uploads', 'blog');
+if (!fs.existsSync(blogImagesDir)) {
+  console.log(`Creando directorio para imágenes del blog: ${blogImagesDir}`);
+  fs.mkdirSync(blogImagesDir, { recursive: true });
+} else {
+  console.log(`Directorio para imágenes del blog ya existe: ${blogImagesDir}`);
+}
 // Servir archivos estáticos desde public
 app.use(express.static('public'));
 // También hacer accesibles los archivos de public desde /api

@@ -9,22 +9,19 @@ export interface BlogPost {
   author_name: string;
   created_at: string;
   updated_at: string;
-  tags?: string[];
+  // Los tags pueden ser:
+  // - string[] cuando se usan para mostrarlos como texto simple
+  // - number[] cuando se envían al backend como IDs
+  // - objetos completos {id, name, slug} cuando vienen de la API
+  tags?: (string | number | {id: number; name: string; slug: string})[];
   category: string;
+  category_id?: number;
+  // En la base de datos solo existen 'draft' y 'published'
   status: 'draft' | 'published';
-  comments_count?: number;
   featured?: boolean;
-}
-
-export interface BlogComment {
-  id: number;
-  post_id: number;
-  user_id: number;
-  user_name: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
-  status: 'pending' | 'approved' | 'spam';
+  // Para uso interno en el formulario (no parte del modelo de BD)
+  imageFile?: File;
+  image?: string | null;
 }
 
 export interface BlogCategory {

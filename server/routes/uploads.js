@@ -1,5 +1,12 @@
 import express from 'express';
-import { uploadAvatar, uploadUserAvatar, deleteUserAvatar } from '../controllers/uploads.js';
+import { 
+  uploadAvatar, 
+  uploadUserAvatar, 
+  deleteUserAvatar, 
+  uploadBlogImage, 
+  uploadBlogImageHandler,
+  deleteBlogImage
+} from '../controllers/uploads.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -7,10 +14,12 @@ const router = express.Router();
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
 
-// Subir avatar
+// Rutas para avatar de usuario
 router.post('/avatar', uploadAvatar, uploadUserAvatar);
-
-// Eliminar avatar
 router.delete('/avatar', deleteUserAvatar);
+
+// Rutas para imágenes del blog
+router.post('/blog', uploadBlogImageHandler);
+router.delete('/blog/:filename', deleteBlogImage);
 
 export default router;

@@ -1,0 +1,390 @@
+import React, { useState, useEffect } from 'react';
+import { BlogPost, BlogCategory, BlogTag } from '../../../types/blog';
+import { blogService } from '../../../services/blogService';
+import { X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/Dialog';
+import { Button } from '../../ui/Button';
+import { Label } from '../../ui/Label';
+
+interface PostFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (post: Partial<BlogPost>) => Promise<void>;
+  post?: BlogPost | null;
+}
+
+export const PostForm: React.FC<PostFormProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  post = null,
+}) => {
+  const [formData, setFormData] = useState<Partial<BlogPost>>({
+    title: '',
+    slug: '',
+    content: '',
+    excerpt: '',
+    status: 'draft',
+    category: '',
+    category_id: undefined,
+    tags: [],
+    image_url: '',
+  });
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<BlogCategory[]>([]);
+  const [tags, setTags] = useState<BlogTag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Cargar datos iniciales (categorías y etiquetas)
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [categoriesRes, tagsRes] = await Promise.all([
+          blogService.getAllCategories(),
+          blogService.getAllTags()
+        ]);
+        setCategories(categoriesRes);
+        setTags(tagsRes);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al cargar datos';
+        setError(errorMessage);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Cargar datos del post si estamos editando
+  useEffect(() => {
+    if (post && categories.length > 0 && tags.length > 0) {
+      console.log('Cargando datos del post para edición:', post);
+      
+      // Asegurarse de que status siempre tiene un valor válido
+      const status = post.status || 'draft';
+      
+      // Buscar el ID de categoría correspondiente
+      let categoryId = post.category_id;
+      if (!categoryId && post.category) {
+        const matchedCategory = categories.find(c => c.name === post.category);
+        if (matchedCategory) {
+          categoryId = matchedCategory.id;
+        }
+      }
+      
+      // Procesar los tags para obtener los IDs como string
+      const postTagIds: string[] = [];
+      
+      if (post.tags && Array.isArray(post.tags)) {
+        console.log('Tags recibidos del post:', post.tags);
+        
+        // Para cada tag, extraemos el ID como string
+        for (const tag of post.tags) {
+          if (typeof tag === 'number') {
+            postTagIds.push(String(tag));
+          } else if (typeof tag === 'object' && tag !== null && 'id' in tag) {
+            postTagIds.push(String((tag as any).id));
+          } else if (typeof tag === 'string') {
+            // Si es un string, puede ser un ID o un nombre
+            if (!isNaN(Number(tag))) {
+              postTagIds.push(tag);
+            } else {
+              const matchedTag = tags.find(t => t.name === tag);
+              if (matchedTag) {
+                postTagIds.push(String(matchedTag.id));
+              }
+            }
+          }
+        }
+      }
+      
+      console.log('Tags procesados (IDs como strings):', postTagIds);
+      
+      setFormData({
+        title: post.title || '',
+        slug: post.slug || '',
+        content: post.content || '',
+        excerpt: post.excerpt || '',
+        status: status,
+        category: post.category || '',
+        category_id: categoryId,
+        image_url: post.image_url || '',
+      });
+      
+      // Establecer los tags seleccionados
+      setSelectedTags(postTagIds);
+      
+      console.log('Datos finales cargados en el formulario:', {
+        title: post.title,
+        category: post.category,
+        category_id: categoryId,
+        status: status,
+        content_length: post.content ? post.content.length : 0,
+        tags: postTagIds
+      });
+    } else if (!post) {
+      // Reset al crear un nuevo post
+      setFormData({
+        title: '',
+        slug: '',
+        content: '',
+        excerpt: '',
+        status: 'draft',
+        category: '',
+        category_id: undefined,
+        tags: [],
+        image_url: '',
+      });
+      setSelectedTags([]);
+    }
+  }, [post, categories, tags]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const generateSlug = () => {
+    // Función para generar un slug a partir del título
+    if (formData.title) {
+      const slug = formData.title
+        .toLowerCase()
+        .replace(/[^\w\s]/gi, '')
+        .replace(/\s+/g, '-');
+      setFormData(prev => ({ ...prev, slug }));
+    }
+  };
+
+  const handleTagChange = (tagId: string) => {
+    setSelectedTags(prev => {
+      if (prev.includes(tagId)) {
+        return prev.filter(t => t !== tagId);
+      } else {
+        return [...prev, tagId];
+      }
+    });
+  };
+
+  // Manejamos el envío del formulario
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    // Validar que todos los datos requeridos estén presentes
+    if (!formData.title || !formData.content || !formData.category_id) {
+      setError("Por favor, completa todos los campos obligatorios (título, contenido, categoría)");
+      setLoading(false);
+      return;
+    }
+
+    // Convertir los tags seleccionados a números para el backend
+    const numericTags = selectedTags.map(tag => Number(tag)).filter(id => !isNaN(id));
+    console.log('Tags seleccionados para enviar:', selectedTags);
+    console.log('Tags convertidos a números para enviar:', numericTags);
+
+    // Preparar datos para enviar al backend
+    const dataToSubmit: Partial<BlogPost> = {
+      title: formData.title,
+      slug: formData.slug,
+      content: formData.content,
+      excerpt: formData.excerpt,
+      image_url: formData.image_url || '',
+      category: formData.category,
+      category_id: formData.category_id ? Number(formData.category_id) : undefined,
+      status: formData.status as 'draft' | 'published',
+      tags: numericTags
+    };
+    
+    console.log('Enviando datos del formulario:', JSON.stringify(dataToSubmit, null, 2));
+
+    try {
+      await onSubmit(dataToSubmit);
+      onClose();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al guardar post';
+      console.error('Error al enviar formulario:', err);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold">
+            {post ? 'Editar Publicación' : 'Nueva Publicación'}
+          </DialogTitle>
+          <button 
+            onClick={onClose} 
+            className="absolute right-4 top-4 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          {error && (
+            <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="title">Título</Label>
+            <input
+              id="title"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              onBlur={() => !formData.slug && generateSlug()}
+              placeholder="Título de la publicación"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="slug">Slug</Label>
+            <div className="flex gap-2">
+              <input
+                id="slug"
+                name="slug"
+                value={formData.slug}
+                onChange={handleChange}
+                placeholder="slug-de-la-publicacion"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800"
+                required
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={generateSlug}
+                className="whitespace-nowrap"
+              >
+                Generar
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="content">Contenido</Label>
+            <textarea
+              id="content"
+              name="content"
+              value={formData.content}
+              onChange={handleChange}
+              placeholder="Contenido de la publicación"
+              rows={10}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="excerpt">Extracto</Label>
+            <textarea
+              id="excerpt"
+              name="excerpt"
+              value={formData.excerpt}
+              onChange={handleChange}
+              placeholder="Resumen breve de la publicación"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="image_url">URL de Imagen (opcional)</Label>
+            <input
+              id="image_url"
+              name="image_url"
+              value={formData.image_url || ''}
+              onChange={handleChange}
+              placeholder="https://ejemplo.com/imagen.jpg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="category_id">Categoría</Label>
+            <select
+              id="category_id"
+              name="category_id"
+              value={formData.category_id || ''}
+              onChange={(e) => {
+                const categoryId = e.target.value ? parseInt(e.target.value) : undefined;
+                const selectedCategory = categoryId ? categories.find(c => c.id === categoryId) : null;
+                setFormData(prev => ({
+                  ...prev,
+                  category_id: categoryId,
+                  category: selectedCategory ? selectedCategory.name : ''
+                }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800"
+              required
+            >
+              <option value="">Seleccionar categoría</option>
+              {categories.map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Etiquetas</Label>
+            <div className="flex flex-wrap gap-2 p-3 border border-gray-300 dark:border-gray-700 rounded-md">
+              {tags.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay etiquetas disponibles</p>
+              ) : (
+                tags.map(tag => (
+                  <label key={tag.id} className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedTags.includes(tag.id.toString())}
+                      onChange={() => handleTagChange(tag.id.toString())}
+                      className="w-4 h-4 mr-1"
+                    />
+                    <span className="text-sm">{tag.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status">Estado</Label>
+            <select
+              id="status"
+              name="status"
+              value={formData.status || 'draft'}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800"
+              required
+            >
+              <option value="draft">Borrador</option>
+              <option value="published">Publicado</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              En la base de datos solo existen los estados "draft" (Borrador) y "published" (Publicado).
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Guardando...' : post ? 'Actualizar' : 'Crear'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};

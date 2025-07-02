@@ -12,6 +12,7 @@ import {
   FileText,
   ChartIcon
 } from '../../utils/icons';
+import { Blog } from '../../utils/BlogIcon';
 import { Card } from '../ui/Card';
 
 interface AdminLayoutProps {
@@ -111,6 +112,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
       icon: <FileText className="w-5 h-5" />,
       path: '/admin/documents',
       active: currentPath.includes('/admin/documents')
+    },
+    {
+      name: 'Blog',
+      icon: <Blog className="w-5 h-5" />,
+      path: '/admin/blog',
+      active: currentPath.includes('/admin/blog')
     },
     { 
       name: 'Configuración', 

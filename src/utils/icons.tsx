@@ -628,3 +628,54 @@ export const ChevronDown: React.FC<IconProps> = ({
     <polyline points="6 9 12 15 18 9"></polyline>
   </svg>
 );
+
+export const Blog: React.FC<IconProps> = ({ 
+  size = 24, 
+  color = "currentColor", 
+  strokeWidth = 2, 
+  className = "", 
+  ...props 
+}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+    <path d="M3 7h18" />
+    <path d="M9 3v18" />
+  </svg>
+);
+
+export const BookOpen: React.FC<IconProps> = ({ 
+  size = 24, 
+  color = "currentColor", 
+  strokeWidth = 2, 
+  className = "", 
+  ...props 
+}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+  </svg>
+);

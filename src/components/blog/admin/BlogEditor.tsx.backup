@@ -1,0 +1,195 @@
+import { Editor } from '@tinymce/tinymce-react';
+// Importar TinyMCE desde la instalación local
+import 'tinymce/tinymce';
+import 'tinymce/models/dom/model';
+// Importar solo los plugins que vamos a usar
+import 'tinymce/themes/silver';
+import 'tinymce/icons/default';
+import 'tinymce/plugins/advlist';
+import 'tinymce/plugins/autolink';
+import 'tinymce/plugins/lists';
+import 'tinymce/plugins/link';
+import 'tinymce/plugins/image';
+import 'tinymce/plugins/charmap';
+import 'tinymce/plugins/preview';
+import 'tinymce/plugins/anchor';
+import 'tinymce/plugins/searchreplace';
+import 'tinymce/plugins/visualblocks';
+import 'tinymce/plugins/code';
+import 'tinymce/plugins/fullscreen';
+import 'tinymce/plugins/insertdatetime';
+import 'tinymce/plugins/media';
+import 'tinymce/plugins/table';
+import 'tinymce/plugins/help';
+import 'tinymce/plugins/wordcount';
+import 'tinymce/plugins/emoticons';
+import 'tinymce/plugins/emoticons/js/emojis';
+// Importación de los estilos de TinyMCE
+import 'tinymce/skins/ui/oxide/skin.css';
+import 'tinymce/skins/ui/oxide/content.css';
+import 'tinymce/skins/content/default/content.css';
+
+// La API Key la obtenemos desde las variables de entorno
+const TINYMCE_API_KEY = import.meta.env.VITE_TINYMCE_API_KEY;
+const API_URL = import.meta.env.VITE_API_URL;
+
+/**
+ * Editor TinyMCE simplificado para evitar errores y telemetría
+ */
+export function BlogEditor({ value, onChange }: { value: string, onChange: (content: string) => void }) {
+  // @ts-expect-error - Problemas con los tipos de TinyMCE
+  const config = {
+    height: "calc(100vh - 280px)",
+    resize: false,
+    menubar: true,
+    plugins: [
+      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+      'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+      'insertdatetime', 'media', 'table', 'help', 'wordcount',
+      'emoticons'
+    ],
+    toolbar: [
+      'undo redo | formatselect | fontsizeselect | bold italic underline strikethrough | forecolor backcolor | removeformat',
+      'alignleft aligncenter alignright alignjustify | bullist numlist outdent indent',
+      'link image media table | code fullscreen | emoticons | help'
+    ],
+    content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:16px }',
+    language: 'es',
+    language_url: '/tinymce/langs/es.js',
+    branding: false,
+    relative_urls: false,
+    remove_script_host: false,
+    convert_urls: true,
+    file_picker_types: 'image',
+    image_advtab: true,
+    automatic_uploads: true,
+    // Configuración para desactivar telemetría y seguimiento
+    promotion: false,
+    referrer_policy: 'origin',
+    send_uri_to_server: false,
+    allow_unsafe_link_target: true,
+    collect_metrics: false,
+    // Configuración para suprimir el mensaje de licencia
+    license_key: 'gpl',
+    // Configuración para subir imágenes
+    images_upload_url: `${API_URL}/uploads/blog`,
+    images_upload_handler: function(blobInfo, success, failure) {
+      const file = blobInfo.blob();
+      const formData = new FormData();
+      formData.append('blogImage', file);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        failure('Se requiere autenticación');
+        return;
+      }
+      
+      fetch(`${API_URL}/uploads/blog`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Error al subir imagen: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        const imageUrl = data.file.url.startsWith('http') 
+          ? data.file.url 
+          : `${API_URL}${data.file.url}`;
+        
+        success(imageUrl);
+      })
+      .catch(err => {
+        const errorMessage = err instanceof Error ? err.message : 'Error al cargar imagen';
+        failure(`Error al cargar imagen: ${errorMessage}`);
+        console.error('Error al cargar imagen:', err);
+      });
+    }
+  };
+
+  return (
+    <Editor
+      id="content"
+      value={value}
+      apiKey={TINYMCE_API_KEY}
+      onEditorChange={onChange}
+      init={config as any}
+        height: "calc(100vh - 280px)",
+        resize: false,
+        menubar: true,
+        plugins: [
+          'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+          'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+          'insertdatetime', 'media', 'table', 'help', 'wordcount',
+          'emoticons'
+        ],
+        toolbar: [
+          'undo redo | formatselect | fontsizeselect | bold italic underline strikethrough | forecolor backcolor | removeformat',
+          'alignleft aligncenter alignright alignjustify | bullist numlist outdent indent',
+          'link image media table | code fullscreen | emoticons | help'
+        ],
+        content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:16px }',
+        language: 'es',
+        language_url: '/tinymce/langs/es.js',
+        branding: false,
+        relative_urls: false,
+        remove_script_host: false,
+        convert_urls: true,
+        file_picker_types: 'image',
+        image_advtab: true,
+        automatic_uploads: true,
+        // Configuración para desactivar telemetría y seguimiento
+        promotion: false,
+        referrer_policy: 'origin',
+        send_uri_to_server: false,
+        allow_unsafe_link_target: true,
+        collect_metrics: false,
+        // Configuración para subir imágenes
+        images_upload_url: `${API_URL}/uploads/blog`,
+        // @ts-expect-error - Incompatibilidad de tipos con TinyMCE
+        images_upload_handler: function(blobInfo: any, success: any, failure: any) {
+          const file = blobInfo.blob();
+          const formData = new FormData();
+          formData.append('blogImage', file);
+          
+          const token = localStorage.getItem('token');
+          if (!token) {
+            failure('Se requiere autenticación');
+            return;
+          }
+          
+          fetch(`${API_URL}/uploads/blog`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Error al subir imagen: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            const imageUrl = data.file.url.startsWith('http') 
+              ? data.file.url 
+              : `${API_URL}${data.file.url}`;
+            
+            success(imageUrl);
+          })
+          .catch(err => {
+            const errorMessage = err instanceof Error ? err.message : 'Error al cargar imagen';
+            failure(`Error al cargar imagen: ${errorMessage}`);
+            console.error('Error al cargar imagen:', err);
+          });
+        }
+      }}
+    />
+  );
+}
