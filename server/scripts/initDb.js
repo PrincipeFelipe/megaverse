@@ -164,6 +164,62 @@ async function initializeDatabase() {
         name = VALUES(name)
     `);
     
+    // Crear tablas para el sistema de limpieza
+    console.log('Creando tablas del sistema de limpieza...');
+    
+    // Tabla de configuración de limpieza
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS cleaning_config (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        users_per_week INT NOT NULL DEFAULT 2,
+        rotation_complete BOOLEAN DEFAULT FALSE,
+        last_assignment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Tabla de historial de limpieza
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS cleaning_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        week_start_date DATE NOT NULL,
+        week_end_date DATE NOT NULL,
+        status ENUM('pending', 'completed', 'missed') DEFAULT 'pending',
+        feedback TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        UNIQUE KEY unique_user_week (user_id, week_start_date)
+      )
+    `);
+    
+    // Tabla de exenciones de limpieza
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS cleaning_exemptions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE,
+        reason TEXT NOT NULL,
+        is_permanent BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+    
+    // Insertamos una configuración inicial de limpieza
+    const [configCheck] = await connection.query('SELECT * FROM cleaning_config LIMIT 1');
+    if (configCheck.length === 0) {
+      console.log('Creando configuración inicial de limpieza...');
+      await connection.query(`
+        INSERT INTO cleaning_config (users_per_week)
+        VALUES (2)
+      `);
+    }
+    
     console.log('Base de datos inicializada correctamente.');
   } catch (error) {
     console.error('Error al inicializar la base de datos:', error.message);
