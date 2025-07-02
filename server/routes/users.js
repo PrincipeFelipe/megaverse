@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 router.get('/', isAdmin, userController.getAllUsers);
+router.get('/list-for-selection', userController.getUsersForSelection); // Nueva ruta para selección sin requerir admin
 router.get('/:id', userController.getUserById);
 router.put('/:id', userController.updateUser);
 router.delete('/:id', isAdmin, userController.deleteUser);

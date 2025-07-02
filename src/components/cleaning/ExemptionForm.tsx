@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { cleaningDutyService } from '../../services/cleaningDutyService';
 import { Button } from '../../components/ui/Button';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface ExemptionFormProps {
   userId: number;
@@ -15,6 +16,7 @@ const ExemptionForm: React.FC<ExemptionFormProps> = ({ userId, onSuccess, onCanc
   const [reason, setReason] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const { addNotification } = useNotifications();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,10 +48,22 @@ const ExemptionForm: React.FC<ExemptionFormProps> = ({ userId, onSuccess, onCanc
         isPermanent
       });
       
+      addNotification({
+        type: 'info',
+        title: 'Éxito',
+        message: 'Exención solicitada con éxito'
+      });
       onSuccess();
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Error al crear la exención');
+    } catch (error) {
+      const errorMessage = 'Error al crear la exención';
+      setError(errorMessage);
       console.error('Error al crear exención:', error);
+      
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: errorMessage
+      });
     } finally {
       setLoading(false);
     }

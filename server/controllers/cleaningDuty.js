@@ -42,17 +42,37 @@ export const updateCleaningConfig = async (req, res) => {
 export const getCurrentCleaningAssignments = async (req, res) => {
   try {
     const today = new Date();
+    console.log('Fecha actual para asignaciones de limpieza:', today);
+    
+    // Obtener el inicio y fin de la semana actual
     const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
     const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
     
+    console.log('Buscando asignaciones entre:', weekStart, 'y', weekEnd);
+    
+    // Verificar todas las asignaciones para depuración
+    const [allAssignments] = await db.query(
+      `SELECT ch.id, ch.user_id, ch.week_start_date, ch.week_end_date, ch.status, 
+              u.name, u.email
+       FROM cleaning_history ch
+       JOIN users u ON ch.user_id = u.id
+       ORDER BY ch.week_start_date DESC
+       LIMIT 10`
+    );
+    console.log('Todas las asignaciones disponibles (primeras 10):', JSON.stringify(allAssignments, null, 2));
+    
+    // Intentemos con una lógica más permisiva para fechas
     const [assignments] = await db.query(
       `SELECT ch.id, ch.user_id, ch.week_start_date, ch.week_end_date, ch.status,
               u.name, u.email
        FROM cleaning_history ch
        JOIN users u ON ch.user_id = u.id
-       WHERE ch.week_start_date <= ? AND ch.week_end_date >= ?`,
-      [weekEnd, weekStart]
+       WHERE (DATE(ch.week_start_date) <= ? AND DATE(ch.week_end_date) >= ?) OR
+             (DATE(ch.week_start_date) >= ? AND DATE(ch.week_start_date) <= ?)`,
+      [weekEnd, weekStart, weekStart, weekEnd]
     );
+    
+    console.log('Asignaciones encontradas para la semana actual:', JSON.stringify(assignments, null, 2));
     
     res.json(assignments);
   } catch (error) {
@@ -83,16 +103,44 @@ export const getCleaningHistory = async (req, res) => {
 export const getUserCleaningHistory = async (req, res) => {
   try {
     const { userId } = req.params;
+    console.log(`Obteniendo historial de limpieza para el usuario ${userId}`);
     
+    // Primero verificamos si hay alguna asignación actual para el usuario
+    const today = new Date();
+    const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    
+    console.log(`Buscando asignaciones actuales para el usuario ${userId} entre ${weekStart} y ${weekEnd}`);
+    
+    // Obtener usuario primero para tener sus datos
+    const [userData] = await db.query('SELECT id, name, email FROM users WHERE id = ?', [userId]);
+    if (userData.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    
+    const user = userData[0];
+    console.log(`Información del usuario encontrada:`, user);
+    
+    // Consultar todas las asignaciones del usuario, incluyendo las actuales
     const [history] = await db.query(
-      `SELECT ch.id, ch.week_start_date, ch.week_end_date, ch.status, ch.feedback
+      `SELECT ch.id, ch.user_id, ch.week_start_date, ch.week_end_date, ch.status, ch.feedback
        FROM cleaning_history ch
        WHERE ch.user_id = ?
        ORDER BY ch.week_start_date DESC`,
       [userId]
     );
     
-    res.json(history);
+    // Añadir información del usuario a cada registro de historial
+    const historyWithUserData = history.map(item => ({
+      ...item,
+      name: user.name,
+      email: user.email
+    }));
+    
+    console.log(`Historial de limpieza encontrado para el usuario ${userId}:`, 
+      JSON.stringify(historyWithUserData, null, 2));
+    
+    res.json(historyWithUserData);
   } catch (error) {
     console.error('Error al obtener historial de limpieza del usuario:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -311,6 +359,52 @@ export const deleteCleaningExemption = async (req, res) => {
     res.json({ message: 'Exención de limpieza eliminada correctamente' });
   } catch (error) {
     console.error('Error al eliminar exención de limpieza:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Cambiar el usuario asignado a una tarea de limpieza
+export const updateAssignedUser = async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { newUserId } = req.body;
+    
+    // Verificar que el usuario exista
+    const [userExists] = await db.query('SELECT id FROM users WHERE id = ?', [newUserId]);
+    
+    if (userExists.length === 0) {
+      return res.status(404).json({ message: 'El usuario seleccionado no existe' });
+    }
+    
+    // Verificar que la asignación exista
+    const [assignmentExists] = await db.query(
+      'SELECT id, status FROM cleaning_history WHERE id = ?',
+      [assignmentId]
+    );
+    
+    if (assignmentExists.length === 0) {
+      return res.status(404).json({ message: 'Asignación de limpieza no encontrada' });
+    }
+    
+    // Actualizar el usuario asignado
+    const [result] = await db.query(
+      'UPDATE cleaning_history SET user_id = ?, status = "pending", updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newUserId, assignmentId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(500).json({ message: 'Error al actualizar la asignación' });
+    }
+    
+    // Obtener los datos del nuevo usuario para la respuesta
+    const [userData] = await db.query('SELECT id, name, email FROM users WHERE id = ?', [newUserId]);
+    
+    res.json({ 
+      message: 'Asignación actualizada correctamente',
+      user: userData[0]
+    });
+  } catch (error) {
+    console.error('Error al actualizar usuario asignado:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };

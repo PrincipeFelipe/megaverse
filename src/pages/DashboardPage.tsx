@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Calendar, ShoppingCart, CreditCard, Clock, MapPin } from '../utils/icons';
+import { User, Calendar, ShoppingCart, CreditCard, MapPin, Trash2 } from '../utils/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { Reservation, Consumption } from '../types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { reservationService, consumptionService } from '../services/api';
+import { cleaningDutyService, CleaningAssignment } from '../services/cleaningDutyService';
+import { Link } from 'react-router-dom';
+import { useNotifications } from '../hooks/useNotifications';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [consumptions, setConsumptions] = useState<Consumption[]>([]);
+  const [cleaningDuty, setCleaningDuty] = useState<CleaningAssignment | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +43,56 @@ export const DashboardPage: React.FC = () => {
             : [];
           
           setConsumptions(sortedConsumptions);
+          
+          // Obtener turno de limpieza del usuario actual
+          try {
+            console.log("Obteniendo asignaciones de limpieza para el usuario:", user.id);
+            const currentAssignments = await cleaningDutyService.getCurrentAssignments();
+            console.log("Asignaciones obtenidas:", currentAssignments);
+            
+            if (currentAssignments.length > 0) {
+              // Comprobación por ID exacto - solo turnos pendientes
+              let userCleaningDuty = currentAssignments.find(
+                assignment => assignment.user_id === user.id && assignment.status === 'pending'
+              );
+              
+              // Si no encontramos por ID exacto, intentamos comparar como string (por si hay problemas de tipo)
+              if (!userCleaningDuty) {
+                userCleaningDuty = currentAssignments.find(
+                  assignment => String(assignment.user_id) === String(user.id) && assignment.status === 'pending'
+                );
+              }
+              
+              console.log("Turno pendiente del usuario:", userCleaningDuty);
+              setCleaningDuty(userCleaningDuty || null);
+            } else {
+              console.log("No hay asignaciones de limpieza actuales");
+              
+              // Alternativa: Hacer una consulta directa al backend por las asignaciones del usuario
+              try {
+                console.log("Intentando obtener asignaciones directamente para el usuario:", user.id);
+                const userHistory = await cleaningDutyService.getUserHistory(user.id);
+                console.log("Historial de limpieza del usuario:", userHistory);
+                
+                // Filtrar para encontrar asignaciones actuales
+                const now = new Date();
+                const currentAssignment = userHistory.find(assignment => {
+                  const startDate = new Date(assignment.week_start_date);
+                  const endDate = new Date(assignment.week_end_date);
+                  return startDate <= now && endDate >= now;
+                });
+                
+                console.log("Asignación actual del usuario (por historial):", currentAssignment);
+                if (currentAssignment) {
+                  setCleaningDuty(currentAssignment);
+                }
+              } catch (historyErr) {
+                console.error("Error al obtener historial de limpieza del usuario:", historyErr);
+              }
+            }
+          } catch (err) {
+            console.error("Error al obtener turno de limpieza:", err);
+          }
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -111,6 +165,81 @@ export const DashboardPage: React.FC = () => {
             Bienvenido de vuelta, {user?.name}
           </p>
         </motion.div>
+
+        {/* Cleaning Duty Alert - Mostramos de forma prominente */}
+        {/* Log estado */}
+        <>{(() => { console.log("Estado de cleaningDuty en render:", cleaningDuty); return null; })()}</>
+        
+        {cleaningDuty ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <div className="p-4 border-l-4 border-red-500 bg-red-50 dark:bg-red-900 rounded-md shadow-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <Trash2 className="h-6 w-6 text-red-500" aria-hidden="true" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-red-800 dark:text-red-200">
+                    ¡TURNO DE LIMPIEZA ASIGNADO!
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                    <p>
+                      Tienes asignado un turno de limpieza para la semana del{' '}
+                      <span className="font-semibold">
+                        {format(new Date(cleaningDuty.week_start_date), 'dd MMM', { locale: es })} al{' '}
+                        {format(new Date(cleaningDuty.week_end_date), 'dd MMM yyyy', { locale: es })}
+                      </span>
+                    </p>
+                    <div className="mt-2 flex space-x-4">
+                      <Link
+                        to="/cleaning"
+                        className="text-sm font-medium text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 underline"
+                      >
+                        Ver detalles &rarr;
+                      </Link>
+                      <span className="text-red-600 dark:text-red-400">|</span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (cleaningDuty) {
+                              await cleaningDutyService.updateStatus(cleaningDuty.id, { status: 'completed' });
+                              addNotification({
+                                type: 'info',
+                                title: 'Éxito',
+                                message: 'Has marcado tu turno de limpieza como completado'
+                              });
+                              // Refrescar datos - eliminamos de la vista el turno completado
+                              setCleaningDuty(null);
+                              
+                              // También podríamos recargar todos los datos
+                              // pero no es necesario porque ya hemos quitado el turno de limpieza
+                              // y sabemos que está marcado como completado
+                            }
+                          } catch (err) {
+                            console.error('Error al actualizar el estado del turno de limpieza:', err);
+                            addNotification({
+                              type: 'error',
+                              title: 'Error',
+                              message: 'No se pudo actualizar el estado del turno'
+                            });
+                          }
+                        }}
+                        className="text-sm font-medium text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 underline cursor-pointer"
+                      >
+                        Marcar como completada
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="hidden">No hay turnos de limpieza asignados</div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

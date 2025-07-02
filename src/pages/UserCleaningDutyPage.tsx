@@ -1,34 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { cleaningDutyService, CleaningAssignment } from '../services/cleaningDutyService';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotifications } from '../hooks/useNotifications';
 
 const UserCleaningDutyPage: React.FC = () => {
   const [assignments, setAssignments] = useState<CleaningAssignment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
 
-  useEffect(() => {
-    if (user) {
-      fetchUserCleaningHistory();
-    }
-  }, [user]);
-
-  const fetchUserCleaningHistory = async () => {
+  const fetchUserCleaningHistory = useCallback(async () => {
     if (!user) return;
     
     setLoading(true);
     try {
       const history = await cleaningDutyService.getUserHistory(user.id);
       setAssignments(history);
-    } catch (error) {
-      console.error('Error al cargar historial de limpieza:', error);
+    } catch (err) {
+      console.error('Error al cargar historial de limpieza:', err);
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo cargar tu historial de limpieza'
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, addNotification]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserCleaningHistory();
+    }
+  }, [user, fetchUserCleaningHistory]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -61,11 +68,13 @@ const UserCleaningDutyPage: React.FC = () => {
   };
 
   // Encontrar la asignación actual (si existe)
-  const currentAssignment = assignments.find(
-    assignment => 
-      assignment.status === 'pending' && 
-      new Date(assignment.week_end_date) >= new Date()
-  );
+  const currentAssignment = Array.isArray(assignments) 
+    ? assignments.find(
+        assignment => 
+          (assignment?.status === 'pending' || assignment?.status === 'completed') && 
+          new Date(assignment?.week_end_date) >= new Date()
+      )
+    : undefined;
 
   if (loading) {
     return (
@@ -82,8 +91,14 @@ const UserCleaningDutyPage: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6">Mis turnos de limpieza</h1>
 
       {currentAssignment && (
-        <Card className="mb-8 p-6 border-l-4 border-yellow-500">
-          <h2 className="text-lg font-semibold mb-3">Turno de limpieza actual</h2>
+        <Card className={`mb-8 p-6 border-l-4 ${
+          currentAssignment.status === 'completed' 
+            ? 'border-green-500' 
+            : 'border-yellow-500'
+        }`}>
+          <h2 className="text-lg font-semibold mb-3">
+            Turno de limpieza {currentAssignment.status === 'completed' ? 'completado' : 'actual'}
+          </h2>
           <div className="mb-4">
             <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Período:</div>
             <div className="font-medium">
@@ -98,8 +113,17 @@ const UserCleaningDutyPage: React.FC = () => {
           </div>
           <div>
             <p className="text-sm mb-4">
-              Durante esta semana te corresponde realizar la limpieza de las instalaciones de la sociedad. 
-              Por favor, asegúrate de completar esta tarea antes del {formatDate(currentAssignment.week_end_date)}.
+              {currentAssignment.status === 'completed' ? (
+                <>
+                  Has completado tu turno de limpieza para la semana que finaliza el {formatDate(currentAssignment.week_end_date)}.
+                  ¡Gracias por contribuir al mantenimiento de nuestras instalaciones!
+                </>
+              ) : (
+                <>
+                  Durante esta semana te corresponde realizar la limpieza de las instalaciones de la sociedad. 
+                  Por favor, asegúrate de completar esta tarea antes del {formatDate(currentAssignment.week_end_date)}.
+                </>
+              )}
             </p>
             <div className="p-3 bg-gray-100 dark:bg-dark-800 rounded-lg text-sm">
               <h3 className="font-semibold mb-2">Tareas a realizar:</h3>
@@ -111,6 +135,35 @@ const UserCleaningDutyPage: React.FC = () => {
                 <li>Comprobar que todo queda ordenado</li>
               </ul>
             </div>
+            
+            {currentAssignment.status === 'pending' && (
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={async () => {
+                    try {
+                      await cleaningDutyService.updateStatus(currentAssignment.id, { status: 'completed' });
+                      addNotification({
+                        type: 'info',
+                        title: 'Éxito',
+                        message: 'Has marcado tu turno de limpieza como completado'
+                      });
+                      // Refrescar datos
+                      fetchUserCleaningHistory();
+                    } catch (error) {
+                      console.error('Error al actualizar el estado del turno de limpieza:', error);
+                      addNotification({
+                        type: 'error',
+                        title: 'Error',
+                        message: 'No se pudo actualizar el estado del turno'
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm"
+                >
+                  Marcar como completado
+                </button>
+              </div>
+            )}
           </div>
         </Card>
       )}

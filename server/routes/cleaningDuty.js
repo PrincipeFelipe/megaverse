@@ -16,6 +16,7 @@ router.get('/user/:userId', authenticateToken, cleaningDutyController.getUserCle
 router.put('/config', authenticateToken, cleaningDutyController.updateCleaningConfig);
 router.post('/assign', authenticateToken, cleaningDutyController.assignCleaningDuty);
 router.put('/status/:assignmentId', authenticateToken, cleaningDutyController.updateCleaningStatus);
+router.put('/assignment/:assignmentId/user', authenticateToken, cleaningDutyController.updateAssignedUser);
 
 // Gestión de exenciones
 router.get('/exemptions', authenticateToken, cleaningDutyController.getCleaningExemptions);

@@ -10,8 +10,9 @@ export { consumptionPaymentsService } from './consumptionPaymentsService';
 export { documentService } from './documentService';
 export { cleaningDutyService } from './cleaningDutyService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
-const API_PATH = '';
+// VITE_API_URL ya incluye /api al final
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
+const API_PATH = ''; // Dejamos esto vacío porque VITE_API_URL ya incluye /api
 
 /**
  * Función para asegurar que los valores numéricos sean correctamente parseados
@@ -58,7 +59,8 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   };
   
   // Asegurar que la URL esté bien formada
-  const fullUrl = `${API_URL}${API_PATH}${url.startsWith('/') ? url : '/' + url}`;
+  const fullUrl = `${API_URL}${url.startsWith('/') ? url : '/' + url}`;
+  console.log('fetchWithAuth URL:', fullUrl); // Para depuración
   
   const response = await fetch(fullUrl, {
     ...options,
@@ -75,22 +77,32 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 };
 
 // Servicios de autenticación
-export const authService = {  login: async (username: string, password: string) => {
-    const response = await fetch(`${API_URL}${API_PATH}/auth/login`, {
+export const authService = {  
+  login: async (username: string, password: string) => {
+    // Log para depuración
+    console.log('API_URL:', API_URL);
+    console.log('API_PATH:', API_PATH);
+    const fullUrl = `${API_URL}/auth/login`;
+    console.log('URL completa de login:', fullUrl);
+    
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ username, password })
     });
-      if (!response.ok) {
+    
+    if (!response.ok) {
       const error = await response.json();
       console.log('Error de login recibido del servidor:', error);
       throw new Error(error.error || 'Error al iniciar sesión');
     }
     
-    return response.json();  },
-    register: async (name: string, username: string, email: string, phone: string, dni: string, password: string) => {
+    return response.json();
+  },
+  
+  register: async (name: string, username: string, email: string, phone: string, dni: string, password: string) => {
     const response = await fetch(`${API_URL}${API_PATH}/auth/register`, {
       method: 'POST',
       headers: {

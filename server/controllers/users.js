@@ -15,6 +15,35 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+// Endpoint simplificado para seleccionar usuarios (para componentes de selección)
+// No requiere permisos de administrador, pero sí autenticación
+export const getUsersForSelection = async (req, res) => {
+  try {
+    console.log(`Usuario ${req.user.name} (ID: ${req.user.id}) solicitando lista de usuarios para selección`);
+    const connection = await pool.getConnection();
+    
+    // Solo devuelve los campos mínimos necesarios para mostrar y seleccionar usuarios
+    // Filtra usuarios que tienen exenciones permanentes
+    const [users] = await connection.query(`
+      SELECT u.id, u.name, u.email 
+      FROM users u
+      WHERE u.id NOT IN (
+        SELECT e.user_id 
+        FROM cleaning_exemptions e 
+        WHERE e.is_permanent = TRUE
+      )
+      ORDER BY u.name ASC
+    `);
+    connection.release();
+    
+    console.log(`Se encontraron ${users.length} usuarios para selección`);
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error('Error al obtener usuarios para selección:', error);
+    return res.status(500).json({ error: 'Error del servidor al obtener lista de usuarios' });
+  }
+};
+
 export const getUserById = async (req, res) => {
   const { id } = req.params;
   
