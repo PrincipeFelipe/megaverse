@@ -33,6 +33,7 @@ export interface User {
   createdAt: string;
   membership_date?: string; // Fecha desde la que es miembro
   phone?: string; // Número de teléfono
+  dni?: string; // DNI o NIE del usuario
   avatar_url?: string; // URL de la imagen de avatar
   balance: number; // Saldo del usuario
 }

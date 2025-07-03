@@ -181,7 +181,7 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(Number(e.target.value))}
               required
-              className={`${filteredUsers.length > 8 ? 'h-56' : ''}`}
+              className={`${filteredUsers.length > 8 ? 'h-12' : ''}`}
             >
               <option value="">-- Seleccionar usuario --</option>
               {filteredUsers.map((user) => (

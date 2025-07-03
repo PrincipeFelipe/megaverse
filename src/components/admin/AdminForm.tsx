@@ -1,20 +1,25 @@
 import React from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { AvatarPreview } from './AvatarPreview';
 
 interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'number' | 'select' | 'textarea';
+  type: 'text' | 'email' | 'password' | 'number' | 'select' | 'textarea' | 'tel' | 'date' | 'file';
   placeholder?: string;
   options?: { value: string; label: string }[];
   required?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  accept?: string;
 }
 
 interface AdminFormProps {
   fields: FormField[];
-  values: Record<string, any>;
-  onChange: (name: string, value: any) => void;
+  values: Record<string, string | number | boolean | File | null>;
+  onChange: (name: string, value: string | number | boolean | File | null) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitText: string;
   loading?: boolean;
@@ -50,7 +55,7 @@ export const AdminForm: React.FC<AdminFormProps> = ({
             <select
               id={field.name}
               name={field.name}
-              value={values[field.name] || ''}
+              value={String(values[field.name] || '')}
               onChange={(e) => onChange(field.name, e.target.value)}
               required={field.required}
               className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-dark-700 dark:bg-dark-800 rounded-md shadow-sm focus:outline-none focus:ring-primary-400 focus:border-primary-400"
@@ -68,22 +73,69 @@ export const AdminForm: React.FC<AdminFormProps> = ({
             <textarea
               id={field.name}
               name={field.name}
-              value={values[field.name] || ''}
+              value={String(values[field.name] || '')}
               onChange={(e) => onChange(field.name, e.target.value)}
               required={field.required}
               placeholder={field.placeholder}
               rows={3}
               className="mt-1 block w-full border border-gray-300 dark:border-dark-700 dark:bg-dark-800 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-400 focus:border-primary-400"
             />
+          ) : field.type === 'file' ? (
+            <div>
+              {field.accept?.includes('image/') && (
+                <div className="mb-3 flex items-center">
+                  <div className="mr-3">
+                    <AvatarPreview 
+                      file={values[field.name] as File | null} 
+                      size="sm"
+                    />
+                  </div>
+                  {values[field.name] && (
+                    <button
+                      type="button"
+                      onClick={() => onChange(field.name, null)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      Eliminar imagen
+                    </button>
+                  )}
+                </div>
+              )}
+              <input
+                id={field.name}
+                name={field.name}
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  onChange(field.name, file);
+                }}
+                required={field.required}
+                accept={field.accept}
+                className="mt-1 block w-full border border-gray-300 dark:border-dark-700 dark:bg-dark-800 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-400 focus:border-primary-400"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                {field.accept?.includes('image/') && 'Formatos recomendados: JPG, PNG. Tamaño máximo: 2MB'}
+              </p>
+            </div>
           ) : (
             <Input
               id={field.name}
               name={field.name}
               type={field.type}
-              value={values[field.name] || (field.type === 'number' ? 0 : '')}
-              onChange={(e) => onChange(field.name, e.target.value)}
+              value={field.type === 'number' 
+                ? (values[field.name] !== null ? String(values[field.name]) : '0') 
+                : (values[field.name] !== null && typeof values[field.name] !== 'boolean' && !(values[field.name] instanceof File) 
+                  ? String(values[field.name]) 
+                  : '')}
+              onChange={(e) => {
+                const value = field.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                onChange(field.name, value);
+              }}
               required={field.required}
               placeholder={field.placeholder}
+              min={field.min}
+              max={field.max}
+              step={field.step}
             />
           )}
         </div>

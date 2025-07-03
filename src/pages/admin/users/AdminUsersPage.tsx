@@ -8,6 +8,7 @@ import { User } from '../../../types';
 import { adminUserService } from '../../../services/api';
 import { Pencil, Trash2, Plus as PlusIcon } from 'lucide-react';
 import { showDangerConfirm, showSuccess, showError, showLoading, closeLoading } from '../../../utils/alerts';
+import { AvatarPreview } from '../../../components/admin/AvatarPreview';
 
 export const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -16,6 +17,7 @@ export const AdminUsersPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);  const [formValues, setFormValues] = useState({
+    avatar: null as File | null,
     name: '',
     username: '',
     email: '',
@@ -23,7 +25,8 @@ export const AdminUsersPage: React.FC = () => {
     role: 'user',
     phone: '',
     dni: '',
-    membership_date: ''
+    membership_date: '',
+    balance: '0.00'
   });
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -46,6 +49,7 @@ export const AdminUsersPage: React.FC = () => {
   const handleOpenModal = (user: User | null = null) => {    if (user) {
       setIsEditMode(true);
       setSelectedUser(user);      setFormValues({
+        avatar: null, // No cargamos el avatar en edición
         name: user.name,
         username: user.username || '',
         email: user.email || '',
@@ -53,11 +57,13 @@ export const AdminUsersPage: React.FC = () => {
         role: user.role,
         phone: user.phone || '',
         dni: user.dni || '',
-        membership_date: user.membership_date || ''
+        membership_date: user.membership_date || '',
+        balance: user.balance.toString()
       });
     } else {
       setIsEditMode(false);
       setSelectedUser(null);      setFormValues({
+        avatar: null,
         name: '',
         username: '',
         email: '',
@@ -65,7 +71,8 @@ export const AdminUsersPage: React.FC = () => {
         role: 'user',
         phone: '',
         dni: '',
-        membership_date: ''
+        membership_date: '',
+        balance: '0.00'
       });
     }
     setIsModalOpen(true);
@@ -75,7 +82,7 @@ export const AdminUsersPage: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
   };
-  const handleInputChange = (name: string, value: string | number) => {
+  const handleInputChange = (name: string, value: string | number | boolean | File | null) => {
     setFormValues((prev) => ({
       ...prev,
       [name]: value
@@ -83,10 +90,58 @@ export const AdminUsersPage: React.FC = () => {
   };
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formValues.email)) {
+      showError('Error', 'El formato del correo electrónico no es válido');
+      return;
+    }
+    
+    // Validar formato de teléfono (permite formato internacional +XX XXXXXXXXX)
+    const phoneRegex = /^\+?[\d\s]{6,15}$/;
+    if (formValues.phone && !phoneRegex.test(formValues.phone)) {
+      showError('Error', 'El formato del número de teléfono no es válido');
+      return;
+    }
+    
+    // Validar formato de DNI/NIE (8 números y letra o letra + 7 números + letra)
+    if (formValues.dni) {
+      const dniRegex = /^[0-9]{8}[A-Za-z]$|^[XYZxyz][0-9]{7}[A-Za-z]$/;
+      if (!dniRegex.test(formValues.dni)) {
+        showError('Error', 'El formato del DNI/NIE no es válido');
+        return;
+      }
+    }
+    
     try {
       setLoading(true);
       showLoading(isEditMode ? 'Actualizando usuario...' : 'Creando usuario...');
-        if (isEditMode && selectedUser) {        // Actualizamos usuario
+      
+      // Procesamos el avatar si existe
+      let avatarUrl = null;
+      if (formValues.avatar) {
+        const formData = new FormData();
+        formData.append('avatar', formValues.avatar);
+        
+        try {
+          // Subir avatar
+          const uploadResponse = await fetch('/api/uploads/avatar', {
+            method: 'POST',
+            body: formData,
+            // No incluir Content-Type, se establece automáticamente con FormData
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            avatarUrl = uploadResult.url;
+          }
+        } catch (uploadError) {
+          console.error('Error al subir avatar:', uploadError);
+        }
+      }
+      
+      if (isEditMode && selectedUser) {        // Actualizamos usuario
         const userData = {
           name: formValues.name,
           username: formValues.username,
@@ -94,12 +149,20 @@ export const AdminUsersPage: React.FC = () => {
           role: formValues.role as 'admin' | 'user',
           phone: formValues.phone,
           dni: formValues.dni,
-          membership_date: formValues.membership_date
+          membership_date: formValues.membership_date,
+          balance: parseFloat(formValues.balance)
         };
+        
+        // Si se ha cargado un avatar, lo incluimos
+        if (avatarUrl) {
+          Object.assign(userData, { avatar_url: avatarUrl });
+        }
+        
         // Si hay contraseña, la incluimos
         if (formValues.password) {
           Object.assign(userData, { password: formValues.password });
         }
+        
         await adminUserService.updateUser(selectedUser.id, userData);
         closeLoading();
         showSuccess(
@@ -107,7 +170,7 @@ export const AdminUsersPage: React.FC = () => {
           `El usuario "${formValues.name}" ha sido actualizado correctamente`
         );
       } else {        // Creamos usuario nuevo
-        await adminUserService.createUser({
+        const newUserData = {
           name: formValues.name,
           username: formValues.username,
           email: formValues.email,
@@ -116,8 +179,15 @@ export const AdminUsersPage: React.FC = () => {
           phone: formValues.phone,
           dni: formValues.dni,
           membership_date: formValues.membership_date,
-          balance: 0 // Inicializar con saldo cero
-        });
+          balance: parseFloat(formValues.balance) // Convertir string a número
+        };
+        
+        // Si se ha cargado un avatar, lo incluimos
+        if (avatarUrl) {
+          Object.assign(newUserData, { avatar_url: avatarUrl });
+        }
+        
+        await adminUserService.createUser(newUserData);
         closeLoading();
         showSuccess(
           'Usuario creado', 
@@ -157,6 +227,7 @@ export const AdminUsersPage: React.FC = () => {
       }
     }
   };  const formFields = [
+    { name: 'avatar', label: 'Imagen de perfil', type: 'file' as const, required: false, accept: 'image/*' },
     { name: 'name', label: 'Nombre', type: 'text' as const, required: true, placeholder: 'Nombre completo' },
     { name: 'username', label: 'Nombre de usuario', type: 'text' as const, required: true, placeholder: 'nombreusuario' },
     { name: 'email', label: 'Email', type: 'email' as const, required: true, placeholder: 'correo@ejemplo.com' },
@@ -171,9 +242,10 @@ export const AdminUsersPage: React.FC = () => {
         { value: 'admin', label: 'Administrador' }
       ] 
     },    
-    { name: 'phone', label: 'Teléfono', type: 'text' as const, required: true, placeholder: '+34 600000000' },
+    { name: 'phone', label: 'Teléfono', type: 'tel' as const, required: true, placeholder: '+34 600000000' },
     { name: 'dni', label: 'DNI/NIE', type: 'text' as const, required: false, placeholder: '12345678X' },
-    { name: 'membership_date', label: 'Fecha de alta (AAAA-MM-DD)', type: 'text' as const, required: false, placeholder: 'AAAA-MM-DD' }
+    { name: 'membership_date', label: 'Fecha de alta', type: 'date' as const, required: false },
+    { name: 'balance', label: 'Saldo inicial (€)', type: 'number' as const, required: false, placeholder: '0.00', step: 0.01, min: 0 }
   ];  const columns = [
     { header: 'ID', accessor: 'id' as keyof User },
     { header: 'Nombre', accessor: 'name' as keyof User },
