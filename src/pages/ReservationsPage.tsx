@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Users, List } from '../utils/icons';
 import { useAuth } from '../contexts/AuthContext';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
@@ -16,6 +15,7 @@ import { Calendar7Days } from '../components/calendar/Calendar7Days';
 import ReservationsList from '../components/calendar/ReservationsList';
 import { testHoursVisualization } from '../utils/hourVisualizationTest';
 import { hasReachedDailyLimit, hasMinimumAdvanceTime } from '../utils/reservationValidation';
+import { UserLayout } from '../components/layout/UserLayout';
 
 // Tipo para errores de API
 type ApiError = {
@@ -500,100 +500,101 @@ export const ReservationsPage: React.FC = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="container mx-auto px-4 py-8 max-w-7xl"
-    >
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Reserva de mesas</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          {viewMode === 'calendar' 
-            ? 'Selecciona una mesa para ver su disponibilidad y realizar una reserva'
-            : 'Gestiona tus reservas desde la vista de lista'}
-        </p>
-      </div>
-
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
-          <p>{error}</p>
+    <UserLayout>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="container mx-auto px-4 py-8 max-w-7xl"
+      >
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Reserva de mesas</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            {viewMode === 'calendar' 
+              ? 'Selecciona una mesa para ver su disponibilidad y realizar una reserva'
+              : 'Gestiona tus reservas desde la vista de lista'}
+          </p>
         </div>
-      )}
 
-      {/* Menú de navegación entre vistas */}
-      <div className="mb-4 flex gap-2">
-        <Button
-          variant={viewMode === 'calendar' ? 'primary' : 'outline'}
-          onClick={() => setViewMode('calendar')}
-          className="flex-1"
-        >
-          <Calendar className="w-5 h-5 mr-2" />
-          Ver en calendario
-        </Button>
-        <Button
-          variant={viewMode === 'list' ? 'primary' : 'outline'}
-          onClick={() => setViewMode('list')}
-          className="flex-1"
-        >
-          <List className="w-5 h-5 mr-2" />
-          Ver como lista
-        </Button>
-      </div>
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
+            <p>{error}</p>
+          </div>
+        )}
 
-      {/* Selector de mesa (solo visible en modo calendario) */}
-      {viewMode === 'calendar' && (
-        <div className="mb-6">
-          <label htmlFor="tableSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Selecciona una mesa:
-          </label>
-          <select
-            id="tableSelect"
-            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-            onChange={(e) => {
-              const tableId = parseInt(e.target.value);
-              const table = tables.find(t => t.id === tableId) || null;
-              setSelectedTable(table);
-            }}
-            value={selectedTable?.id || ""}
+        {/* Menú de navegación entre vistas */}
+        <div className="mb-4 flex gap-2">
+          <Button
+            variant={viewMode === 'calendar' ? 'primary' : 'outline'}
+            onClick={() => setViewMode('calendar')}
+            className="flex-1"
           >
-            <option value="">-- Selecciona una mesa --</option>
-            {tables.map((table) => (
-              <option key={table.id} value={table.id}>
-                {table.name}
-              </option>
-            ))}
-          </select>
+            <Calendar className="w-5 h-5 mr-2" />
+            Ver en calendario
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'primary' : 'outline'}
+            onClick={() => setViewMode('list')}
+            className="flex-1"
+          >
+            <List className="w-5 h-5 mr-2" />
+            Ver como lista
+          </Button>
         </div>
-      )}      {/* Información de la mesa seleccionada (solo en modo calendario) */}
-      {viewMode === 'calendar' && selectedTable && (
-        <div className="flex items-center mb-2 text-sm bg-white dark:bg-gray-800 rounded-md shadow-sm p-2 border-l-4 border-blue-500">
-          <Users className="w-4 h-4 mr-2 text-blue-500" />
-          <span className="font-medium mr-2">{selectedTable.name}</span>
-          {selectedTable.description && (
-            <span className="text-gray-500 dark:text-gray-400 overflow-hidden overflow-ellipsis whitespace-nowrap max-w-xl">
-              - {selectedTable.description}
-            </span>
-          )}
-        </div>
-      )}
 
-      {/* Vista de calendario o lista de reservas */}
-      {viewMode === 'calendar' ? (
-        selectedTable ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-8">
-            <Calendar7Days
-              reservations={reservations.filter(res => res.table_id === selectedTable.id)}
-              tables={[selectedTable]}
-              onSelectSlot={handleSelectSlot}
-              onCancelReservation={handleCancelReservation}
-            />
+        {/* Selector de mesa (solo visible en modo calendario) */}
+        {viewMode === 'calendar' && (
+          <div className="mb-6">
+            <label htmlFor="tableSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Selecciona una mesa:
+            </label>
+            <select
+              id="tableSelect"
+              className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              onChange={(e) => {
+                const tableId = parseInt(e.target.value);
+                const table = tables.find(t => t.id === tableId) || null;
+                setSelectedTable(table);
+              }}
+              value={selectedTable?.id || ""}
+            >
+              <option value="">-- Selecciona una mesa --</option>
+              {tables.map((table) => (
+                <option key={table.id} value={table.id}>
+                  {table.name}
+                </option>
+              ))}
+            </select>
           </div>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden p-6 text-center mb-8">
-            <p className="text-gray-600 dark:text-gray-400">Por favor, selecciona una mesa para ver el calendario de reservas.</p>
+        )}      {/* Información de la mesa seleccionada (solo en modo calendario) */}
+        {viewMode === 'calendar' && selectedTable && (
+          <div className="flex items-center mb-2 text-sm bg-white dark:bg-gray-800 rounded-md shadow-sm p-2 border-l-4 border-blue-500">
+            <Users className="w-4 h-4 mr-2 text-blue-500" />
+            <span className="font-medium mr-2">{selectedTable.name}</span>
+            {selectedTable.description && (
+              <span className="text-gray-500 dark:text-gray-400 overflow-hidden overflow-ellipsis whitespace-nowrap max-w-xl">
+                - {selectedTable.description}
+              </span>
+            )}
           </div>
-        )
-      ) : (        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-8">
+        )}
+
+        {/* Vista de calendario o lista de reservas */}
+        {viewMode === 'calendar' ? (
+          selectedTable ? (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-8">
+              <Calendar7Days
+                reservations={reservations.filter(res => res.table_id === selectedTable.id)}
+                tables={[selectedTable]}
+                onSelectSlot={handleSelectSlot}
+                onCancelReservation={handleCancelReservation}
+              />
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden p-6 text-center mb-8">
+              <p className="text-gray-600 dark:text-gray-400">Por favor, selecciona una mesa para ver el calendario de reservas.</p>
+            </div>
+          )
+        ) : (        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-8">
           <ReservationsList
             reservations={reservations}
             onEditReservation={handleEditReservation}
@@ -729,7 +730,8 @@ export const ReservationsPage: React.FC = () => {
             </div>
           </form>
         )}      </Modal>
-    </motion.div>
+      </motion.div>
+    </UserLayout>
   );
 };
 

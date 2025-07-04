@@ -30,6 +30,7 @@ export interface User {
   username: string;
   email: string; // Mantenemos el email para compatibilidad pero ahora es opcional
   role: 'admin' | 'user';
+  is_active: boolean; // Indica si el usuario está activo o pendiente de activación
   createdAt: string;
   membership_date?: string; // Fecha desde la que es miembro
   phone?: string; // Número de teléfono

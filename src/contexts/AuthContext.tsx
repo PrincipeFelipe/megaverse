@@ -52,14 +52,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (name: string, username: string, email: string, phone: string, dni: string, password: string): Promise<boolean> => {
     try {
-      const data = await authService.register(name, username, email, phone, dni, password);
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem('token', data.token);
+      await authService.register(name, username, email, phone, dni, password);
+      // Como hemos configurado que los nuevos usuarios estén inactivos,
+      // no debemos iniciar sesión automáticamente
+      // Solo mostramos un mensaje de registro exitoso
       return true;
     } catch (error) {
       console.error('Registration failed:', error);
-      return false;
+      throw error; // Propagamos el error para manejarlo en la página de autenticación
     }
   };
 

@@ -11,14 +11,84 @@ console.log('Variables de entorno cargadas desde:', path.resolve(process.cwd(), 
 console.log('JWT_SECRET está configurado:', !!process.env.JWT_SECRET);
 
 export const register = async (req, res) => {
-  const { name, username, email, password } = req.body;
+  console.log('========== REGISTRO DE USUARIO (AUTH) ==========');
+  console.log('Body completo recibido:', req.body);
+  
+  // Extraemos los campos del body de la petición
+  let { name, username, email, password, phone, dni, membership_date, role, balance, avatar_url } = req.body;
+  
+  // Por defecto, usuarios registrados desde formulario público estarán desactivados
+  // hasta que un administrador los active
+  const is_active = false;
+  
+  console.log('Datos recibidos originales en register:', { 
+    name, username, email, password: password ? '******' : undefined,
+    phone, dni, membership_date, role, balance, avatar_url 
+  });
+  
+  // Aseguramos que los campos existan aunque no se hayan enviado desde el frontend
+  phone = phone || null;
+  dni = dni || null;
+  
+  // Asegurar que membership_date esté en formato correcto para MySQL (YYYY-MM-DD)
+  if (membership_date) {
+    // Si ya es una fecha válida, la convertimos al formato MySQL
+    try {
+      const date = new Date(membership_date);
+      if (!isNaN(date.getTime())) {
+        membership_date = date.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      console.error('Error al procesar la fecha:', e);
+      membership_date = null;
+    }
+  } else {
+    membership_date = null;
+  }
+  
+  console.log('Fecha formateada:', membership_date);
+  
+  // Si viene el rol desde un registro administrativo, respetarlo
+  // De lo contrario, asignar 'user' por defecto
+  role = role || 'user';
+  
+  // Asegurarnos de que los campos sean NULL si están vacíos
+  phone = phone && phone.trim() !== '' ? phone : null;
+  dni = dni && dni.trim() !== '' ? dni : null;
+  
+  // Para la fecha, intentamos transformarla correctamente o la dejamos nula
+  if (membership_date && membership_date.trim() !== '') {
+    try {
+      // Asegurar formato YYYY-MM-DD para MySQL
+      const date = new Date(membership_date);
+      if (!isNaN(date.getTime())) {
+        membership_date = date.toISOString().split('T')[0];
+      } else {
+        membership_date = null;
+      }
+    } catch (e) {
+      console.error('Error grave al procesar fecha:', e);
+      membership_date = null;
+    }
+  } else {
+    membership_date = null;
+  }
+  
+  console.log('Datos procesados finales en register:', { 
+    phone: phone ? phone : 'NULL', 
+    dni: dni ? dni : 'NULL', 
+    membership_date: membership_date ? membership_date : 'NULL', 
+    role
+  });
   
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'Se requieren todos los campos obligatorios' });
   }
   
+  let connection;
   try {
-    const connection = await pool.getConnection();
+    console.log('Iniciando registro con validaciones de usuario');
+    connection = await pool.getConnection();
     
     // Verificar si el nombre de usuario ya está en uso
     const [existingUsernames] = await connection.query(
@@ -27,6 +97,7 @@ export const register = async (req, res) => {
     );
     
     if (existingUsernames.length > 0) {
+      console.log('Nombre de usuario ya registrado:', username);
       connection.release();
       return res.status(400).json({ error: 'El nombre de usuario ya está registrado' });
     }
@@ -39,6 +110,7 @@ export const register = async (req, res) => {
       );
       
       if (existingEmails.length > 0) {
+        console.log('Email ya registrado:', email);
         connection.release();
         return res.status(400).json({ error: 'El email ya está registrado' });
       }
@@ -47,21 +119,108 @@ export const register = async (req, res) => {
     // Encriptar la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Insertar el nuevo usuario
-    const [result] = await connection.query(
-      'INSERT INTO users (name, username, email, password) VALUES (?, ?, ?, ?)',
-      [name, username, email || null, hashedPassword]
-    );
+    // Preparar los campos y valores para la consulta
+    // Siempre incluimos los campos básicos
+    const fields = ['name', 'username', 'email', 'password', 'role', 'is_active'];
+    const values = [name, username, email || null, hashedPassword, role, is_active];
     
-    // Obtener el usuario recién creado
+    // Añadir campos opcionales solo si tienen valor
+    if (phone !== null) {
+      fields.push('phone');
+      values.push(phone);
+    }
+    
+    if (dni !== null) {
+      fields.push('dni');
+      values.push(dni);
+    }
+    
+    if (membership_date !== null) {
+      fields.push('membership_date');
+      values.push(membership_date);
+    }
+    
+    if (balance !== undefined) {
+      fields.push('balance');
+      values.push(balance);
+    }
+    
+    if (avatar_url !== undefined && avatar_url !== null) {
+      fields.push('avatar_url');
+      values.push(avatar_url);
+    }
+    
+    console.log('SQL query fields:', fields);
+    console.log('SQL query values:', values.map((v, i) => i === 3 ? '******' : v)); // Ocultamos la contraseña
+    
+    // Construimos la consulta SQL para poder verla completa en los logs
+    const sqlQuery = `INSERT INTO users (${fields.join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
+    console.log('SQL query completa:', sqlQuery);
+    
+    // Log especial para los campos importantes del formulario
+    console.log('Valores finales de campos críticos:', {
+      phone: phone !== null ? phone : 'NO INCLUIDO',
+      dni: dni !== null ? dni : 'NO INCLUIDO',
+      membership_date: membership_date !== null ? membership_date : 'NO INCLUIDO',
+      role: role
+    });
+    
+    // Variable para almacenar el resultado de la inserción
+    let insertedId;
+    
+    try {
+      // Insertar el nuevo usuario con todos los campos proporcionados
+      console.log('Ejecutando consulta SQL con valores:', values.map((v, i) => i === 3 ? '******' : v));
+      const [insertResult] = await connection.query(sqlQuery, values);
+      console.log('Resultado de la inserción:', insertResult);
+      
+      // Guardamos el ID del usuario recién creado
+      insertedId = insertResult.insertId;
+    } catch (error) {
+      console.error('Error al ejecutar la consulta SQL:', error);
+      console.error('Detalle del error:', error.message);
+      console.error('Código de error SQL:', error.code);
+      console.error('SQL state:', error.sqlState);
+      
+      // Devolver un error más informativo al cliente
+      return res.status(500).json({ 
+        error: `Error del servidor al registrar usuario: ${error.code} - ${error.message}` 
+      });
+    }
+    
+    if (!insertedId) {
+      return res.status(500).json({ 
+        error: 'Error al registrar usuario: No se pudo obtener el ID del usuario insertado' 
+      });
+    }
+    
+    // Obtener el usuario recién creado con todos los campos
     const [users] = await connection.query(
-      'SELECT id, name, username, email, role, balance, created_at FROM users WHERE id = ?',
-      [result.insertId]
+      'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, dni, avatar_url FROM users WHERE id = ?',
+      [insertedId]
     );
     
     connection.release();
     
+    // Verificar que se encontró el usuario
+    if (!users || users.length === 0) {
+      return res.status(500).json({ 
+        error: 'Error al registrar usuario: No se pudo recuperar el usuario creado' 
+      });
+    }
+    
     const user = users[0];
+    
+    // Verificar si los campos críticos están presentes
+    console.log('Usuario creado en la BD:', {
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      phone: user.phone,
+      dni: user.dni,
+      membership_date: user.membership_date,
+      role: user.role
+    });
     
     // Definir una clave secreta predeterminada en caso de que no exista en el entorno
     const jwtSecret = process.env.JWT_SECRET || 'megaverse_jwt_secret_key';
@@ -117,6 +276,13 @@ export const login = async (req, res) => {
     
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Nombre de usuario o contraseña incorrectos' });
+    }
+    
+    // Verificar si el usuario está activo
+    if (user.is_active === 0 || user.is_active === false) {
+      return res.status(403).json({ 
+        error: 'Tu cuenta está pendiente de activación. Un administrador deberá activarla.' 
+      });
     }
       // Datos del usuario sin la contraseña
     const userData = {

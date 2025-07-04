@@ -10,6 +10,7 @@ import { reservationService, consumptionService } from '../services/api';
 import { cleaningDutyService, CleaningAssignment } from '../services/cleaningDutyService';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
+import { UserLayout } from '../components/layout/UserLayout';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export const DashboardPage: React.FC = () => {
   const [consumptions, setConsumptions] = useState<Consumption[]>([]);
   const [cleaningDuty, setCleaningDuty] = useState<CleaningAssignment | null>(null);
   const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
     // Fetch real data from API
     const fetchData = async () => {
@@ -148,23 +149,22 @@ export const DashboardPage: React.FC = () => {
       </div>
     );
   }
-
+  
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-950 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Bienvenido de vuelta, {user?.name}
-          </p>
-        </motion.div>
+    <UserLayout>
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Dashboard
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">
+          Bienvenido de vuelta, {user?.name}
+        </p>
+      </motion.div>
 
         {/* Cleaning Duty Alert - Mostramos de forma prominente */}
         {/* Log estado */}
@@ -419,7 +419,6 @@ export const DashboardPage: React.FC = () => {
             </div>
           </Card>
         </motion.div>
-      </div>
-    </div>
+    </UserLayout>
   );
 };

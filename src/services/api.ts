@@ -103,13 +103,28 @@ export const authService = {
   },
   
   register: async (name: string, username: string, email: string, phone: string, dni: string, password: string) => {
+    const userData = { 
+      name, 
+      username, 
+      email, 
+      phone, 
+      dni, 
+      password,
+      // Añadimos la fecha actual como fecha de alta por defecto
+      membership_date: new Date().toISOString().split('T')[0]
+    };
+    
+    console.log('Datos de registro enviados (registro normal):', { ...userData, password: '******' });
+    
     const response = await fetch(`${API_URL}${API_PATH}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ name, username, email, phone, dni, password })
+      body: JSON.stringify(userData)
     });
+    
+    console.log('Respuesta del registro normal:', response.status, response.statusText);
     
     if (!response.ok) {
       const error = await response.json();
@@ -392,6 +407,19 @@ export const adminUserService = {  getAllUsers: async (): Promise<User[]> => {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
       const data = await response.json();
+      
+      // Log para verificar que los datos incluyan los campos críticos
+      console.log('getAllUsers - datos recibidos del servidor:', data);
+      if (data && data.length > 0) {
+        console.log('getAllUsers - primer usuario con campos críticos:', {
+          phone: data[0].phone,
+          dni: data[0].dni,
+          membership_date: data[0].membership_date,
+          is_active: data[0].is_active,
+          is_active_type: typeof data[0].is_active
+        });
+      }
+      
       // Mapear a la interfaz User correctamente sin procesamiento de balance
       return data;
     } catch (error) {
@@ -409,16 +437,69 @@ export const adminUserService = {  getAllUsers: async (): Promise<User[]> => {
       console.error(`Error obteniendo usuario ${id}:`, error);
       throw error;
     }
-  },  createUser: async (userData: Omit<User, 'id' | 'createdAt'> & { password: string }): Promise<User> => {
+  },  createUser: async (userData: Omit<User, 'id' | 'createdAt' | 'balance'> & { password: string, balance?: number }): Promise<User> => {
     try {
-      const response = await fetchWithAuth(`/auth/register`, {
+      // Aseguramos que los campos tengan valores predeterminados si no se proporcionan
+      const dataToSend = {
+        ...userData,
+        // Asegurar que los campos estén correctamente formateados
+        phone: userData.phone || '',
+        dni: userData.dni || '',
+        // Establecer el rol explícitamente (el registro normal siempre crea usuarios con rol 'user')
+        role: userData.role || 'user',
+        // Formatear la fecha correctamente para MySQL
+        membership_date: userData.membership_date 
+          ? new Date(userData.membership_date).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0] // Fecha actual como valor por defecto
+      };
+      
+      // Log de los datos que se envían al servidor (ocultando la contraseña)
+      const logData = { ...dataToSend };
+      if (logData.password) logData.password = '******';
+      console.log('Datos enviados para crear usuario (admin):', logData);
+      console.log('Tipo de dato de membership_date:', typeof dataToSend.membership_date, 'Valor:', dataToSend.membership_date);
+      
+      // Usamos la ruta pública específica para registro administrativo
+      console.log('Llamando al endpoint: /users/public-register (sin requerir token auth)');
+      
+      // Usamos fetch directamente ya que la ruta es pública
+      const response = await fetch(`${API_URL}${API_PATH}/users/public-register`, {
         method: 'POST',
-        body: JSON.stringify(userData),
+        body: JSON.stringify(dataToSend),
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      console.log('Respuesta del servidor:', response.status, response.statusText);
+      
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        // Intentar leer el mensaje de error del cuerpo de la respuesta
+        let errorMessage = `Error ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.error) {
+            errorMessage = errorData.error;
+          }
+          console.error('Respuesta de error completa:', errorData);
+        } catch (e) {
+          console.error('No se pudo parsear la respuesta de error');
+        }
+        throw new Error(errorMessage);
       }
-      return await response.json();
+      
+      const result = await response.json();
+      console.log('Respuesta exitosa:', result);
+      
+      // Extraer el usuario de la respuesta y verificar sus campos
+      const user = result.user || result;
+      console.log('Usuario extraído:', user);
+      console.log('Campos del usuario:', {
+        phone: user.phone,
+        dni: user.dni,
+        membership_date: user.membership_date
+      });
+      
+      return user;
     } catch (error) {
       console.error('Error creando usuario:', error);
       throw error;
@@ -448,6 +529,22 @@ export const adminUserService = {  getAllUsers: async (): Promise<User[]> => {
       return await response.json();
     } catch (error) {
       console.error(`Error eliminando usuario ${id}:`, error);
+      throw error;
+    }
+  },
+  
+  toggleUserActive: async (id: number, isActive: boolean): Promise<User> => {
+    try {
+      const response = await fetchWithAuth(`/users/${id}/toggle-active`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: isActive }),
+      });
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error cambiando estado del usuario ${id}:`, error);
       throw error;
     }
   },

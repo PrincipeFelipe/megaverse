@@ -8,18 +8,22 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 
 export const AuthPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     name: '',
     username: '',
     email: '',
     phone: '',
     dni: '',
     password: '',
-  });
+  };
+  const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const { login, register } = useAuth();
   const navigate = useNavigate();
@@ -86,9 +90,20 @@ export const AuthPage: React.FC = () => {
           return;
         }
         
-        const success = await register(formData.name, formData.username, formData.email, formData.phone, formData.dni, formData.password);
-        if (success) {
-          navigate('/dashboard');
+        try {
+          await register(formData.name, formData.username, formData.email, formData.phone, formData.dni, formData.password);
+          // Mostrar mensaje de éxito
+          setSuccess(true);
+          setSuccessMessage('Tu cuenta ha sido registrada correctamente. Un administrador deberá activarla antes de que puedas iniciar sesión.');
+          // Limpiar el formulario
+          setFormData(initialFormData);
+          // Cambiar a la pestaña de login
+          setActiveTab('login');
+        } catch (registerError) {
+          const errorMessage = registerError instanceof Error ? registerError.message : 'Error al registrarse. Inténtalo de nuevo.';
+          setErrors({ 
+            general: errorMessage
+          });
         }
       }
     } catch (error) {
@@ -167,6 +182,13 @@ export const AuthPage: React.FC = () => {
             </p>
           </div>
 
+          {/* Mensaje de éxito */}
+          {success && successMessage && (
+            <div className="p-4 bg-green-900/30 border border-green-500/50 text-green-400 rounded-lg backdrop-blur-sm mb-4">
+              {successMessage}
+            </div>
+          )}
+          
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {errors.general && (
@@ -295,7 +317,14 @@ export const AuthPage: React.FC = () => {
           {/* Toggle */}
           <div className="mt-4 text-center">
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                const newIsLogin = !isLogin;
+                setIsLogin(newIsLogin);
+                setActiveTab(newIsLogin ? 'login' : 'register');
+                setErrors({});
+                setSuccess(false);
+                setSuccessMessage('');
+              }}
               className="text-primary-500 hover:text-primary-400 font-medium transition-colors duration-200 text-sm"
             >
               {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
