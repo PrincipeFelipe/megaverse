@@ -78,7 +78,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         notes: ''
       });
     }
-  }, [expense, mode]);
+  }, [expense, mode, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

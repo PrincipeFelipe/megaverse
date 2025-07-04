@@ -55,7 +55,8 @@ export function ExpensesPage() {
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), "dd 'de' MMMM 'de' yyyy", { locale: es });
-    } catch (e) {
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
       return dateString || 'Fecha desconocida';
     }
   };
@@ -299,7 +300,12 @@ export function ExpensesPage() {
       {/* Modal para crear, editar o ver gastos */}
       <ExpenseModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          if (modalMode === 'create') {
+            setSelectedExpense(undefined);
+          }
+        }}
         mode={modalMode}
         expense={selectedExpense}
         onSuccess={() => {
@@ -310,6 +316,10 @@ export function ExpensesPage() {
           } else {
             fetchExpenses();
             setIsModalOpen(false);
+            // Limpiar el gasto seleccionado si estamos en modo crear
+            if (modalMode === 'create') {
+              setSelectedExpense(undefined);
+            }
           }
         }}
       />
