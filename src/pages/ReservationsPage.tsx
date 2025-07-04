@@ -97,7 +97,9 @@ export const ReservationsPage: React.FC = () => {
             min_hours_in_advance: 0,
             allowed_start_time: '08:00',
             allowed_end_time: '22:00',
-            requires_approval_for_all_day: true
+            requires_approval_for_all_day: true,
+            normal_fee: 30,
+            maintenance_fee: 5
           };
           console.log("Usando configuración predeterminada:", window.reservationConfig);
         }

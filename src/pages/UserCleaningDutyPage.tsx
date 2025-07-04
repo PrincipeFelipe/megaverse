@@ -42,6 +42,7 @@ const UserCleaningDutyPage: React.FC = () => {
     try {
       return format(parseISO(dateString), 'dd MMM yyyy', { locale: es });
     } catch (error) {
+      console.error("Error al formatear fecha:", error);
       return dateString;
     }
   };
