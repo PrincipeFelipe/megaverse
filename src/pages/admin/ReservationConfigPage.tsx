@@ -19,6 +19,10 @@ const ReservationConfigPage: React.FC = () => {
   const [endTime, setEndTime] = useState<string>("22:00");
   const [requiresApproval, setRequiresApproval] = useState<boolean>(true);
   
+  // Configuración para evitar reservas consecutivas
+  const [allowConsecutiveReservations, setAllowConsecutiveReservations] = useState<boolean>(true);
+  const [minTimeBetweenReservations, setMinTimeBetweenReservations] = useState<number>(30);
+  
   // Formulario - Configuración de cuotas
   const [normalFee, setNormalFee] = useState<number>(30);
   const [maintenanceFee, setMaintenanceFee] = useState<number>(15);
@@ -39,6 +43,18 @@ const ReservationConfigPage: React.FC = () => {
         setEndTime(configData.allowed_end_time);
         setRequiresApproval(configData.requires_approval_for_all_day);
         
+        // Configuración para evitar reservas consecutivas
+        setAllowConsecutiveReservations(
+          configData.allow_consecutive_reservations !== undefined 
+            ? configData.allow_consecutive_reservations 
+            : true
+        );
+        setMinTimeBetweenReservations(
+          configData.min_time_between_reservations !== undefined 
+            ? configData.min_time_between_reservations 
+            : 30
+        );
+        
         // Cuotas
         if(configData.normal_fee !== undefined) {
           setNormalFee(configData.normal_fee);
@@ -58,16 +74,21 @@ const ReservationConfigPage: React.FC = () => {
           allowed_start_time: '08:00',
           allowed_end_time: '22:00',
           requires_approval_for_all_day: true,
+          allow_consecutive_reservations: true,
+          min_time_between_reservations: 30,
           normal_fee: 30,
           maintenance_fee: 15
         };
         
-        setConfig(defaultConfig);        setMaxHours(defaultConfig.max_hours_per_reservation);
+        setConfig(defaultConfig);
+        setMaxHours(defaultConfig.max_hours_per_reservation);
         setMaxReservations(defaultConfig.max_reservations_per_user_per_day);
         setMinHoursAdvance(defaultConfig.min_hours_in_advance);
         setStartTime(defaultConfig.allowed_start_time);
         setEndTime(defaultConfig.allowed_end_time);
         setRequiresApproval(defaultConfig.requires_approval_for_all_day);
+        setAllowConsecutiveReservations(defaultConfig.allow_consecutive_reservations);
+        setMinTimeBetweenReservations(defaultConfig.min_time_between_reservations);
         setNormalFee(defaultConfig.normal_fee);
         setMaintenanceFee(defaultConfig.maintenance_fee);
       } finally {
@@ -91,6 +112,8 @@ const ReservationConfigPage: React.FC = () => {
         allowed_start_time: startTime,
         allowed_end_time: endTime,
         requires_approval_for_all_day: requiresApproval,
+        allow_consecutive_reservations: allowConsecutiveReservations,
+        min_time_between_reservations: minTimeBetweenReservations,
         normal_fee: normalFee,
         maintenance_fee: maintenanceFee
       });
@@ -102,6 +125,8 @@ const ReservationConfigPage: React.FC = () => {
         allowed_start_time: startTime,
         allowed_end_time: endTime,
         requires_approval_for_all_day: requiresApproval,
+        allow_consecutive_reservations: allowConsecutiveReservations,
+        min_time_between_reservations: minTimeBetweenReservations,
         normal_fee: normalFee,
         maintenance_fee: maintenanceFee
       });
@@ -273,6 +298,44 @@ const ReservationConfigPage: React.FC = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         Si está marcado, las reservas de todo el día requerirán aprobación de un administrador.
+                      </p>
+                    </div>
+                    
+                    {/* Permitir reservas consecutivas */}
+                    <div>
+                      <div className="flex items-center">
+                        <input
+                          id="allowConsecutiveReservations"
+                          type="checkbox"
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          checked={allowConsecutiveReservations}
+                          onChange={(e) => setAllowConsecutiveReservations(e.target.checked)}
+                        />
+                        <label htmlFor="allowConsecutiveReservations" className="ml-2 block text-sm font-medium">
+                          Permitir reservas consecutivas del mismo usuario
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Si está desmarcado, un usuario no podrá hacer reservas consecutivas de la misma mesa.
+                      </p>
+                    </div>
+                    
+                    {/* Tiempo mínimo entre reservas */}
+                    <div className={allowConsecutiveReservations ? "opacity-50" : ""}>
+                      <label htmlFor="minTimeBetweenReservations" className="block text-sm font-medium mb-1">
+                        Tiempo mínimo entre reservas (minutos)
+                      </label>
+                      <Input
+                        id="minTimeBetweenReservations"
+                        type="number"
+                        min="0"
+                        value={minTimeBetweenReservations}
+                        onChange={(e) => setMinTimeBetweenReservations(Number(e.target.value))}
+                        disabled={allowConsecutiveReservations}
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Tiempo mínimo (en minutos) que debe transcurrir entre reservas del mismo usuario.
                       </p>
                     </div>
                   </div>

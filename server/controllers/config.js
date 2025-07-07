@@ -15,9 +15,10 @@ export const getReservationConfig = async (req, res) => {  try {
         INSERT INTO reservation_config 
         (max_hours_per_reservation, max_reservations_per_user_per_day, min_hours_in_advance, 
         allowed_start_time, allowed_end_time, requires_approval_for_all_day, 
+        allow_consecutive_reservations, min_time_between_reservations,
         normal_fee, maintenance_fee) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [4, 1, 0, '08:00', '22:00', 1, 30, 15]);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [4, 1, 0, '08:00', '22:00', 1, 1, 30, 30, 15]);
       
       const [defaultConfig] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');
       connection.release();
@@ -85,6 +86,17 @@ export const updateReservationConfig = async (req, res) => {
       if (requires_approval_for_all_day !== undefined) {
       updateFields.push('requires_approval_for_all_day = ?');
       updateValues.push(requires_approval_for_all_day ? 1 : 0);
+    }
+    
+    // Campos para reservas consecutivas
+    if (req.body.allow_consecutive_reservations !== undefined) {
+      updateFields.push('allow_consecutive_reservations = ?');
+      updateValues.push(req.body.allow_consecutive_reservations ? 1 : 0);
+    }
+    
+    if (req.body.min_time_between_reservations !== undefined) {
+      updateFields.push('min_time_between_reservations = ?');
+      updateValues.push(req.body.min_time_between_reservations);
     }
     
     // Campos de cuotas

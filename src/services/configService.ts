@@ -28,6 +28,8 @@ export const configService = {
         allowed_start_time: '08:00',
         allowed_end_time: '22:00',
         requires_approval_for_all_day: true,
+        allow_consecutive_reservations: true,
+        min_time_between_reservations: 30,
         normal_fee: 30,
         maintenance_fee: 15,
         created_at: new Date().toISOString(),
