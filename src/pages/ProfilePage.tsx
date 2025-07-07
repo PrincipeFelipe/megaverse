@@ -36,7 +36,18 @@ export const ProfilePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
-    if (user) {      setFormData({
+    if (user) {      
+      console.log('Datos del usuario recibidos en ProfilePage:', {
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        dni: user.dni || '', // Asegurar que el dni tenga al menos cadena vacía si es undefined
+        membership_date: user.membership_date
+      });
+      
+      // Importante: Garantizar que dni sea al menos una cadena vacía si es undefined
+      setFormData({
         name: user.name || '',
         username: user.username || '',
         email: user.email || '',
@@ -117,7 +128,6 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleRemoveAvatar = async () => {
-    // Si solo hay una previsualización local (no se ha guardado aún)
     if (selectedFile) {
       setSelectedFile(null);
       setAvatarPreview(user?.avatar_url ? getAvatarUrl(user.avatar_url) : null);

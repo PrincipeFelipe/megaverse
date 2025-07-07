@@ -40,55 +40,60 @@ app.use(express.json());
 app.use(fileUpload({
   limits: { fileSize: 50 * 1024 * 1024 }, // Límite de 50MB
   createParentPath: true,
-  useTempFiles: true,
-  tempFileDir: '/tmp/',
+  useTempFiles: false, // Desactivado para evitar problemas con permisos temporales
   debug: true // Habilitar logs para depuración
 }));
 
 // Configuración para servir archivos estáticos
+// Primero aseguramos que los directorios existan
+['uploads', 'uploads/avatars', 'uploads/blog', 'uploads/documents'].forEach(dir => {
+  const dirPath = path.join(process.cwd(), dir);
+  if (!fs.existsSync(dirPath)) {
+    console.log(`Creando directorio: ${dirPath}`);
+    fs.mkdirSync(dirPath, { recursive: true });
+    
+    // Intentar dar permisos de escritura explícitos en Windows
+    try {
+      fs.chmodSync(dirPath, 0o755); // Permisos rwxr-xr-x
+      console.log(`Permisos establecidos para: ${dirPath}`);
+    } catch (err) {
+      console.error(`Error al establecer permisos para ${dirPath}:`, err);
+    }
+  } else {
+    console.log(`Directorio ya existe: ${dirPath}`);
+  }
+});
+
 // Servir desde la raíz /uploads
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // También servir desde /api/uploads para compatibilidad
-app.use('/api/uploads', express.static('uploads'));
+app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// Crear directorio para imágenes del blog si no existe
-const blogImagesDir = path.join(process.cwd(), 'uploads', 'blog');
-if (!fs.existsSync(blogImagesDir)) {
-  console.log(`Creando directorio para imágenes del blog: ${blogImagesDir}`);
-  fs.mkdirSync(blogImagesDir, { recursive: true });
-} else {
-  console.log(`Directorio para imágenes del blog ya existe: ${blogImagesDir}`);
-}
 // Servir archivos estáticos desde public
-app.use(express.static('public'));
+app.use(express.static(path.join(process.cwd(), 'public')));
 // También hacer accesibles los archivos de public desde /api
-app.use('/api', express.static('public'));
+app.use('/api', express.static(path.join(process.cwd(), 'public')));
+
 console.log(`Sirviendo archivos estáticos desde: 
-  - ${process.cwd()}/uploads (accesible desde /uploads y /api/uploads)
-  - ${process.cwd()}/public (accesible desde / y /api)`);
+  - ${path.join(process.cwd(), 'uploads')} (accesible desde /uploads y /api/uploads)
+  - ${path.join(process.cwd(), 'public')} (accesible desde / y /api)`);
 
-// Asegurar que existan los directorios necesarios
-const avatarsDir = path.join(process.cwd(), 'uploads', 'avatars');
-if (!fs.existsSync(avatarsDir)) {
-  console.log(`Creando directorio para avatares: ${avatarsDir}`);
-  fs.mkdirSync(avatarsDir, { recursive: true });
-} else {
-  console.log(`Directorio para avatares ya existe: ${avatarsDir}`);
-}
-
-// Crear directorio para documentos si no existe
-const documentsDir = path.join(process.cwd(), 'uploads', 'documents');
-if (!fs.existsSync(documentsDir)) {
-  console.log(`Creando directorio para documentos: ${documentsDir}`);
-  fs.mkdirSync(documentsDir, { recursive: true });
-} else {
-  console.log(`Directorio para documentos ya existe: ${documentsDir}`);
-}
+// Los directorios ya se han creado anteriormente
 
 // Comprobar conexión a la base de datos
 testConnection();
 
 // Rutas API
+// Logging middleware para depurar
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} [${req.method}] ${req.originalUrl}`);
+  if (req.method === 'POST' && req.originalUrl.includes('/uploads/avatar')) {
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Files:', req.files ? Object.keys(req.files) : 'No files');
+    console.log('Body:', req.body ? Object.keys(req.body) : 'Empty body');
+  }
+  next();
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);

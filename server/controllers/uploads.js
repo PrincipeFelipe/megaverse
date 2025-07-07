@@ -97,6 +97,22 @@ export const uploadAvatar = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 }).single('avatar');
 
+// Manejador de errores para multer
+export const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    // Error de Multer
+    console.error('Error de Multer:', err);
+    return res.status(400).json({ error: `Error al subir archivo: ${err.message}` });
+  } else if (err) {
+    // Error genérico
+    console.error('Error al procesar la subida:', err);
+    return res.status(500).json({ error: `Error del servidor: ${err.message}` });
+  }
+  
+  // Si no hay error, continuar
+  next();
+};
+
 // Configurar Multer para imágenes del blog
 export const uploadBlogImage = multer({
   storage: blogImageStorage,
@@ -108,45 +124,102 @@ export const uploadBlogImage = multer({
 export const uploadUserAvatar = async (req, res) => {
   try {
     console.log('Iniciando proceso de subida de avatar');
+    
     // La subida del archivo ya se ha realizado por el middleware de multer
     if (!req.file) {
-      console.log('Error: No se ha proporcionado ninguna imagen');
-      return res.status(400).json({ error: 'No se ha proporcionado ninguna imagen' });
+      // Si no hay archivo en req.file, probamos con express-fileupload
+      if (!req.files || !req.files.avatar) {
+        console.log('Error: No se ha proporcionado ninguna imagen');
+        return res.status(400).json({ error: 'No se ha proporcionado ninguna imagen' });
+      }
+      
+      // Si estamos usando express-fileupload, manejar el archivo aquí
+      const avatarFile = req.files.avatar;
+      console.log(`Usando express-fileupload: ${avatarFile.name}`);
+      
+      const userId = req.user.id;
+      const fileExt = path.extname(avatarFile.name).toLowerCase();
+      const fileName = `${userId}${fileExt}`;
+      const uploadPath = path.join(process.cwd(), 'uploads', 'avatars', fileName);
+      
+      // Eliminar archivos previos del usuario (diferentes extensiones)
+      try {
+        const dir = path.join(process.cwd(), 'uploads', 'avatars');
+        if (fs.existsSync(dir)) {
+          const files = fs.readdirSync(dir);
+          const userFiles = files.filter(file => file.startsWith(`${userId}.`));
+          userFiles.forEach(file => {
+            fs.unlinkSync(path.join(dir, file));
+            console.log(`Avatar previo eliminado: ${file}`);
+          });
+        }
+      } catch (err) {
+        console.error('Error al eliminar avatar previo:', err);
+      }
+      
+      // Mover el archivo al directorio de avatares
+      await avatarFile.mv(uploadPath);
+      console.log(`Archivo guardado: ${uploadPath}`);
+      
+      const avatarUrl = `/uploads/avatars/${fileName}`;
+      console.log(`URL para la base de datos: ${avatarUrl}`);
+      
+      // Actualizar el registro del usuario con la nueva URL del avatar
+      const connection = await pool.getConnection();
+      await connection.query(
+        'UPDATE users SET avatar_url = ? WHERE id = ?',
+        [avatarUrl, req.user.id]
+      );
+      console.log(`BD actualizada para usuario ${req.user.id} con URL ${avatarUrl}`);
+      
+      // Obtener los datos actualizados del usuario
+      const [users] = await connection.query(
+        'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, dni, avatar_url FROM users WHERE id = ?',
+        [req.user.id]
+      );
+      
+      connection.release();
+      
+      console.log('Avatar actualizado correctamente');
+      return res.status(200).json({ 
+        message: 'Avatar actualizado correctamente',
+        user: users[0]
+      });
+    } else {
+      // Si estamos usando multer
+      console.log(`Archivo recibido: ${req.file.originalname}, guardado como: ${req.file.filename}`);
+      console.log(`Ruta del archivo: ${req.file.path}`);
+
+      // Obtener la URL relativa para la base de datos
+      // Cambiamos la ruta para que sea accesible desde la configuración del servidor
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      console.log(`URL para la base de datos: ${avatarUrl}`);
+
+      // Actualizar el registro del usuario con la nueva URL del avatar
+      const connection = await pool.getConnection();
+      await connection.query(
+        'UPDATE users SET avatar_url = ? WHERE id = ?',
+        [avatarUrl, req.user.id]
+      );
+      console.log(`BD actualizada para usuario ${req.user.id} con URL ${avatarUrl}`);
+      
+      // Obtener los datos actualizados del usuario
+      const [users] = await connection.query(
+        'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, dni, avatar_url FROM users WHERE id = ?',
+        [req.user.id]
+      );
+      
+      connection.release();
+      
+      console.log('Avatar actualizado correctamente');
+      return res.status(200).json({ 
+        message: 'Avatar actualizado correctamente',
+        user: users[0]
+      });
     }
-    
-    console.log(`Archivo recibido: ${req.file.originalname}, guardado como: ${req.file.filename}`);
-    console.log(`Ruta del archivo: ${req.file.path}`);
-
-    // Obtener la URL relativa para la base de datos
-    // Cambiamos la ruta para que sea accesible desde la configuración del servidor
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-    console.log(`URL para la base de datos: ${avatarUrl}`);
-
-    // Actualizar el registro del usuario con la nueva URL del avatar
-    const connection = await pool.getConnection();
-    await connection.query(
-      'UPDATE users SET avatar_url = ? WHERE id = ?',
-      [avatarUrl, req.user.id]
-    );
-    console.log(`BD actualizada para usuario ${req.user.id} con URL ${avatarUrl}`);
-    
-    // Obtener los datos actualizados del usuario
-    const [users] = await connection.query(
-      'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, avatar_url FROM users WHERE id = ?',
-      [req.user.id]
-    );
-    
-    connection.release();
-    
-    console.log('Avatar actualizado correctamente');
-    return res.status(200).json({ 
-      message: 'Avatar actualizado correctamente',
-      user: users[0]
-    });
-    
   } catch (error) {
     console.error('Error al subir avatar:', error);
-    return res.status(500).json({ error: 'Error del servidor al subir avatar' });
+    return res.status(500).json({ error: 'Error del servidor al subir avatar: ' + (error.message || 'Error desconocido') });
   }
 };
 

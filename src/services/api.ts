@@ -146,6 +146,7 @@ export const authService = {
     username?: string;
     email?: string;
     phone?: string;
+    dni?: string; // Asegurarnos de incluir explícitamente el campo DNI en el tipo
     membership_date?: string;
     current_password?: string;
     new_password?: string;
@@ -162,6 +163,9 @@ export const authService = {
           cleanedData[key] = value;
         }
       }
+      
+      // Log para depurar los datos que se envían
+      console.log('Datos para actualizar perfil:', cleanedData);
       
       // Siempre usar 'me' para actualizar el perfil del usuario actual
       const response = await fetchWithAuth('/users/me', {

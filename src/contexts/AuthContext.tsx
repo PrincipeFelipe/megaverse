@@ -73,6 +73,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUserData = async () => {
     try {
       const userData = await authService.getProfile();
+      
+      // Log para depuración
+      console.log('Datos actualizados del usuario obtenidos en AuthContext:', {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        dni: userData.dni,
+        phone: userData.phone,
+        avatar_url: userData.avatar_url
+      });
+      
       setUser(userData);
       return userData;
     } catch (error) {

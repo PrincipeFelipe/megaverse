@@ -327,7 +327,7 @@ export const getMe = async (req, res) => {
     const connection = await pool.getConnection();
     // Buscar usuario por ID (del token)
     const [users] = await connection.query(
-      'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, avatar_url FROM users WHERE id = ?',
+      'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, dni, avatar_url FROM users WHERE id = ?',
       [req.user.id]
     );
     
@@ -339,6 +339,16 @@ export const getMe = async (req, res) => {
     
     // Procesar el usuario antes de devolverlo
     const user = users[0];
+    
+    // Log para depurar los valores del usuario, especialmente el DNI
+    console.log('Datos del usuario obtenidos en getMe:', {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      dni: user.dni,
+      phone: user.phone,
+      avatar_url: user.avatar_url
+    });
     
     // Verificar si el avatar existe físicamente si hay una URL
     if (user.avatar_url) {

@@ -14,7 +14,6 @@ import {
   EventSourceInput 
 } from '@fullcalendar/core';
 import { Reservation, Table, ReservationConfig } from '../../types';
-import { extractLocalTime } from '../../utils/dateUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { showError, showConfirm } from '../../utils/alerts';
 import './calendar-styles.css'; // Estilos personalizados existentes
@@ -93,7 +92,142 @@ interface TableSelectionPopoverProps {
   onSelectTable: (tableId: number, start: Date, end: Date) => void;
   onClose: () => void;
   position: { top: number; left: number };
+  reservations: Reservation[]; // Añadimos la lista de reservaciones
 }
+
+// Función auxiliar para verificar si el horario seleccionado coincide con inicio o fin de otra reserva
+// o si no hay suficiente tiempo entre reservas
+const checkForConsecutiveReservations = (
+  tableId: number, 
+  start: Date, 
+  end: Date,
+  allReservations: Reservation[] // Parámetro requerido
+): { isConsecutive: boolean, existingReservation?: Reservation, isTooClose?: boolean, minutesBetween?: number, notAllowedConsecutive?: boolean } => {
+  // Formatear horas para comparación (formato "HH:MM")
+  const formatTimeForComparison = (date: Date): string => {
+    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  };
+  
+  const selectedStartTime = formatTimeForComparison(start);
+  const selectedEndTime = formatTimeForComparison(end);
+  const selectedDateStr = start.toDateString(); // Para comparar solo fecha sin hora
+  
+  console.log(`Verificando reserva en mesa ${tableId}:`, {
+    selectedStartTime,
+    selectedEndTime,
+    selectedDate: selectedDateStr
+  });
+  
+  // Buscar reservas del mismo día para esa mesa
+  const sameTableReservations = allReservations.filter((reservation: Reservation) => {
+    const resStart = new Date(reservation.start_time);
+    return (
+      reservation.status === 'active' && 
+      reservation.table_id === tableId &&
+      resStart.toDateString() === selectedDateStr
+    );
+  });
+  
+  console.log(`Encontradas ${sameTableReservations.length} reservas activas para ese día y mesa`);
+  
+  // Obtener configuración del tiempo mínimo entre reservas y consecutivas
+  // Usamos el operador ?? para proporcionar un valor por defecto si la configuración es undefined
+  const allowConsecutive = window.reservationConfig?.allow_consecutive_reservations ?? true;
+  const minTimeBetweeenReservations = window.reservationConfig?.min_time_between_reservations ?? 0;
+  
+  // Registrar para diagnóstico
+  console.log('Configuración de reservas:', { 
+    allowConsecutive,
+    minTimeBetweeenReservations,
+    configCompleta: window.reservationConfig
+  });
+  
+  // Verificar si alguna reserva comienza o termina exactamente a la misma hora que la selección
+  for (const reservation of sameTableReservations) {
+    const resStart = new Date(reservation.start_time);
+    const resEnd = new Date(reservation.end_time);
+    
+    const reservationStartTime = formatTimeForComparison(resStart);
+    const reservationEndTime = formatTimeForComparison(resEnd);
+    
+    console.log(`Comparando con reserva #${reservation.id}:`, {
+      reservationStartTime,
+      reservationEndTime,
+      selectedStartTime,
+      selectedEndTime
+    });
+    
+    // Comprobar si el inicio o fin coincide con inicio o fin de alguna reserva existente
+    const isConsecutiveReservation = 
+      selectedStartTime === reservationEndTime ||
+      selectedEndTime === reservationStartTime;
+    
+    console.log(`¿Reservas consecutivas?`, {
+      isConsecutiveReservation,
+      selectedStartEqualsResEnd: selectedStartTime === reservationEndTime,
+      selectedEndEqualsResStart: selectedEndTime === reservationStartTime,
+      allowConsecutive
+    });
+    
+    // Si son consecutivas y no está permitido, retornar error específico
+    if (isConsecutiveReservation && !allowConsecutive) {
+      console.log('Reservas consecutivas no permitidas. Config:', { allowConsecutive });
+      return { 
+        isConsecutive: true, 
+        existingReservation: reservation,
+        notAllowedConsecutive: true 
+      };
+    } else if (isConsecutiveReservation && allowConsecutive) {
+      // Si son consecutivas y están permitidas, permitimos la reserva inmediatamente
+      // sin aplicar la restricción de tiempo mínimo entre reservas
+      console.log('Reservas consecutivas permitidas. Saltando validación de tiempo mínimo.');
+      // Continuamos con la comprobación de coincidencia exacta de horario pero NO
+      // aplicaremos la validación de tiempo mínimo entre reservas
+    }
+    
+    // Comprobar si coincide exactamente (mismo inicio o mismo fin)
+    if (
+      selectedStartTime === reservationStartTime ||
+      selectedEndTime === reservationEndTime
+    ) {
+      console.log('Conflicto: mismo horario de inicio o fin');
+      return { isConsecutive: true, existingReservation: reservation };
+    }
+    
+    // Si hay un tiempo mínimo entre reservas, verificamos también el tiempo entre ellas
+    if (minTimeBetweeenReservations > 0) {
+      // Calcular diferencia de tiempo en minutos entre reservas
+      let minutesBetween = 0;
+      let isTooClose = false;
+      
+      // Caso 1: La reserva nueva comienza después de una existente
+      if (start >= resEnd) {
+        minutesBetween = Math.floor((start.getTime() - resEnd.getTime()) / (1000 * 60));
+        isTooClose = minutesBetween < minTimeBetweeenReservations;
+        console.log('Nueva reserva después de existente:', { minutesBetween, isTooClose, minRequired: minTimeBetweeenReservations });
+      }
+      // Caso 2: La reserva existente comienza después de la nueva
+      else if (end <= resStart) {
+        minutesBetween = Math.floor((resStart.getTime() - end.getTime()) / (1000 * 60));
+        isTooClose = minutesBetween < minTimeBetweeenReservations;
+        console.log('Nueva reserva antes de existente:', { minutesBetween, isTooClose, minRequired: minTimeBetweeenReservations });
+      }
+      
+      if (isTooClose) {
+        console.log('Tiempo insuficiente entre reservas');
+        return { 
+          isConsecutive: false, 
+          isTooClose: true, 
+          minutesBetween, 
+          existingReservation: reservation 
+        };
+      }
+    }
+  }
+  
+  console.log('No se encontraron conflictos, reserva permitida');
+  return { isConsecutive: false, isTooClose: false };
+};
 
 // Componente para seleccionar mesa
 const TableSelectionPopover: React.FC<TableSelectionPopoverProps> = ({ 
@@ -102,7 +236,8 @@ const TableSelectionPopover: React.FC<TableSelectionPopoverProps> = ({
   end,
   onSelectTable,
   onClose,
-  position
+  position,
+  reservations
 }) => {
   return (
     <div 
@@ -137,6 +272,44 @@ const TableSelectionPopover: React.FC<TableSelectionPopoverProps> = ({
             key={table.id}
             className="p-2.5 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800"
             onClick={() => {
+              // Primero verificamos si hay reservas consecutivas para la mesa seleccionada
+              console.log('Verificando reserva en mesa:', table.id, 'Inicio:', start, 'Fin:', end);
+              console.log('Configuración actual:', window.reservationConfig);
+              
+              const { isConsecutive, isTooClose, minutesBetween, notAllowedConsecutive } = checkForConsecutiveReservations(table.id, start, end, reservations);
+              
+              console.log('Resultado de la verificación:', { isConsecutive, notAllowedConsecutive, isTooClose, minutesBetween });
+              
+              if (isConsecutive) {
+                if (notAllowedConsecutive) {
+                  console.log('Mostrando error: Reservas consecutivas no permitidas');
+                  showError(
+                    'Reservas consecutivas no permitidas', 
+                    `No se permiten reservas consecutivas según la configuración actual del sistema. No puedes reservar justo al terminar o antes de comenzar otra reserva.`
+                  );
+                } else {
+                  console.log('Mostrando error: Horario no disponible (conflicto de horario)');
+                  showError(
+                    'Horario no disponible', 
+                    `No es posible realizar la reserva porque ya existe una reserva que comienza o termina exactamente a la misma hora en ${table.name}.`
+                  );
+                }
+                onClose();
+                return;
+              }
+              
+              if (isTooClose) {
+                // Si no hay suficiente tiempo entre reservas
+                const minTimeBetween = window.reservationConfig?.min_time_between_reservations || 0;
+                showError(
+                  'Tiempo insuficiente entre reservas', 
+                  `Debe haber al menos ${minTimeBetween} minutos entre reservas en ${table.name}. Actualmente hay ${minutesBetween} minutos de diferencia.`
+                );
+                onClose();
+                return;
+              }
+              
+              // Si no hay problemas, continuar con la reserva
               onSelectTable(table.id, start, end);
               onClose();
             }}
@@ -168,7 +341,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
   const [minTime, setMinTime] = useState<string>(getMinTime());
   const [maxTime, setMaxTime] = useState<string>(getMaxTime());
   const [initialDate, setInitialDate] = useState<Date>(new Date());
-  const [currentViewType, setCurrentViewType] = useState<string>('timeGridWeek');
+  const setCurrentViewType = useState<string>('timeGridWeek')[1];
   
   // Actualizar las horas de inicio y fin cuando cambie la configuración
   useEffect(() => {
@@ -193,14 +366,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
     return {}; // No establecemos límites para permitir navegación completa
   };
   
-  // Función para obtener la vista inicial de la semana
-  const getInitialWeekView = () => {
-    const today = new Date();
-    return {
-      start: today,
-      end: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 días a partir de hoy
-    };
-  };  // Configurar la vista inicial para mostrar la semana comenzando desde hoy
+  // Configurar la vista inicial para mostrar la semana comenzando desde hoy
   useEffect(() => {
     if (calendarRef.current) {
       const today = new Date();
@@ -270,6 +436,131 @@ const Calendar7Days: React.FC<CalendarProps> = ({
       } as CustomCalendarEvent;
     });
   
+  // Función auxiliar para verificar si el horario seleccionado coincide con inicio o fin de otra reserva
+  // o si no hay suficiente tiempo entre reservas
+  const checkForConsecutiveReservations = (
+    tableId: number, 
+    start: Date, 
+    end: Date,
+    allReservations: Reservation[] = reservations // Parámetro opcional con valor predeterminado
+  ): { isConsecutive: boolean, existingReservation?: Reservation, isTooClose?: boolean, minutesBetween?: number, notAllowedConsecutive?: boolean } => {
+    // Formatear horas para comparación (formato "HH:MM")
+    const formatTimeForComparison = (date: Date): string => {
+      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    };
+    
+    const selectedStartTime = formatTimeForComparison(start);
+    const selectedEndTime = formatTimeForComparison(end);
+    const selectedDateStr = start.toDateString(); // Para comparar solo fecha sin hora
+    
+    console.log(`Verificando reserva en mesa ${tableId}:`, {
+      selectedStartTime,
+      selectedEndTime,
+      selectedDate: selectedDateStr
+    });
+    
+    // Buscar reservas del mismo día para esa mesa
+    const sameTableReservations = allReservations.filter((reservation: Reservation) => {
+      const resStart = new Date(reservation.start_time);
+      return (
+        reservation.status === 'active' && 
+        reservation.table_id === tableId &&
+        resStart.toDateString() === selectedDateStr
+      );
+    });
+    
+    console.log(`Encontradas ${sameTableReservations.length} reservas activas para ese día y mesa`);
+    
+    // Obtener configuración del tiempo mínimo entre reservas
+    const allowConsecutive = window.reservationConfig?.allow_consecutive_reservations ?? true;
+    const minTimeBetweeenReservations = window.reservationConfig?.min_time_between_reservations ?? 0;
+    
+    // Verificar si alguna reserva comienza o termina exactamente a la misma hora que la selección
+    for (const reservation of sameTableReservations) {
+      const resStart = new Date(reservation.start_time);
+      const resEnd = new Date(reservation.end_time);
+      
+      const reservationStartTime = formatTimeForComparison(resStart);
+      const reservationEndTime = formatTimeForComparison(resEnd);
+      
+      console.log(`Comparando con reserva #${reservation.id}:`, {
+        reservationStartTime,
+        reservationEndTime,
+        selectedStartTime,
+        selectedEndTime
+      });
+      
+      // Comprobar si el inicio o fin coincide con inicio o fin de alguna reserva existente
+      const isConsecutiveReservation = 
+        selectedStartTime === reservationEndTime ||
+        selectedEndTime === reservationStartTime;
+      
+      console.log(`¿Reservas consecutivas?`, {
+        isConsecutiveReservation,
+        selectedStartEqualsResEnd: selectedStartTime === reservationEndTime,
+        selectedEndEqualsResStart: selectedEndTime === reservationStartTime,
+        allowConsecutive
+      });
+      
+      // Comprobar si coincide exactamente (mismo inicio o mismo fin)
+      if (
+        selectedStartTime === reservationStartTime ||
+        selectedEndTime === reservationEndTime
+      ) {
+        console.log('Conflicto: mismo horario de inicio o fin');
+        return { isConsecutive: true, existingReservation: reservation };
+      }
+      
+      // Si son consecutivas y no está permitido, retornar error específico
+      if (isConsecutiveReservation && !allowConsecutive) {
+        console.log('Reservas consecutivas no permitidas. Config:', { allowConsecutive });
+        return { 
+          isConsecutive: true, 
+          existingReservation: reservation,
+          notAllowedConsecutive: true 
+        };
+      }
+      
+      // Si son consecutivas y están permitidas, no verificamos el tiempo mínimo entre reservas
+      if (isConsecutiveReservation && allowConsecutive) {
+        console.log('Reservas consecutivas permitidas. Se omite verificación de tiempo mínimo.');
+        continue; // Saltamos a la siguiente reserva sin verificar tiempo mínimo
+      }
+      
+      // Si hay un tiempo mínimo entre reservas y no son consecutivas, verificamos el tiempo
+      if (minTimeBetweeenReservations > 0) {
+        // Calcular diferencia de tiempo en minutos entre reservas
+        let minutesBetween = 0;
+        let isTooClose = false;
+        
+        // Caso 1: La reserva nueva comienza después de una existente
+        if (start >= resEnd) {
+          minutesBetween = Math.floor((start.getTime() - resEnd.getTime()) / (1000 * 60));
+          isTooClose = minutesBetween < minTimeBetweeenReservations;
+          console.log('Nueva reserva después de existente:', { minutesBetween, isTooClose, minRequired: minTimeBetweeenReservations });
+        }
+        // Caso 2: La reserva existente comienza después de la nueva
+        else if (end <= resStart) {
+          minutesBetween = Math.floor((resStart.getTime() - end.getTime()) / (1000 * 60));
+          isTooClose = minutesBetween < minTimeBetweeenReservations;
+          console.log('Nueva reserva antes de existente:', { minutesBetween, isTooClose, minRequired: minTimeBetweeenReservations });
+        }
+        
+        if (isTooClose) {
+          console.log('Tiempo insuficiente entre reservas');
+          return { 
+            isConsecutive: false, 
+            isTooClose: true, 
+            minutesBetween, 
+            existingReservation: reservation 
+          };
+        }
+      }
+    }
+    
+    return { isConsecutive: false, isTooClose: false };
+  };
+  
   // Manejar la selección de un slot en el calendario
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     if (!user) {
@@ -322,8 +613,48 @@ const Calendar7Days: React.FC<CalendarProps> = ({
       
       setShowTableSelector(true);
     } else if (tables.length === 1) {
-      // Si solo hay una mesa, seleccionarla directamente
-      onSelectSlot(tables[0].id, selectedStart, selectedEnd);
+      // Si solo hay una mesa, verificar primero si hay reservas consecutivas
+      const tableId = tables[0].id;
+      console.log('Verificando reserva en mesa única:', tableId, 'Inicio:', selectedStart, 'Fin:', selectedEnd);
+      console.log('Configuración actual:', window.reservationConfig);
+      
+      const { isConsecutive, isTooClose, minutesBetween, notAllowedConsecutive } = checkForConsecutiveReservations(tableId, selectedStart, selectedEnd, reservations);
+      
+      console.log('Resultado de la verificación:', { isConsecutive, notAllowedConsecutive, isTooClose, minutesBetween });
+      
+      if (isConsecutive) {
+        // Si encontramos una reserva consecutiva, mostrar error y no permitir la reserva
+        const existingTable = tables.find(t => t.id === tableId)?.name || 'la mesa seleccionada';
+        
+        if (notAllowedConsecutive) {
+          console.log('Mostrando error: Reservas consecutivas no permitidas');
+          showError(
+            'Reservas consecutivas no permitidas', 
+            `No se permiten reservas consecutivas según la configuración actual del sistema. No puedes reservar justo al terminar o antes de comenzar otra reserva.`
+          );
+        } else {
+          console.log('Mostrando error: Horario no disponible (conflicto de horario)');
+          showError(
+            'Horario no disponible', 
+            `No es posible realizar la reserva porque ya existe una reserva que comienza o termina exactamente a la misma hora en ${existingTable}.`
+          );
+        }
+        return;
+      }
+      
+      if (isTooClose) {
+        // Si no hay suficiente tiempo entre reservas
+        const existingTable = tables.find(t => t.id === tableId)?.name || 'la mesa seleccionada';
+        const minTimeBetween = window.reservationConfig?.min_time_between_reservations || 0;
+        showError(
+          'Tiempo insuficiente entre reservas', 
+          `Debe haber al menos ${minTimeBetween} minutos entre reservas en ${existingTable}. Actualmente hay ${minutesBetween} minutos de diferencia.`
+        );
+        return;
+      }
+      
+      // Si no hay problemas, continuar con la reserva
+      onSelectSlot(tableId, selectedStart, selectedEnd);
     }
   };
   // Manejar clic en un evento (reserva)
@@ -486,6 +817,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
           onSelectTable={onSelectSlot}
           onClose={() => setShowTableSelector(false)}
           position={popoverPosition}
+          reservations={reservations}
         />
       )}
     </div>
