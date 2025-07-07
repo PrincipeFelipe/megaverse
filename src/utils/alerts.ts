@@ -306,7 +306,13 @@ export const showAlert = (title: string, message?: string, icon: 'success' | 'er
 };
 
 // Alertas de éxito, error y advertencia
-export const showSuccess = (title: string, message?: string) => showAlert(title, message, 'success');
+export const showSuccess = (title: string, message?: string, onConfirm?: () => void) => {
+  showAlert(title, message, 'success').then(() => {
+    if (onConfirm) {
+      onConfirm();
+    }
+  });
+};
 export const showError = (title: string, message?: string) => showAlert(title, message, 'error');
 export const showWarning = (title: string, message?: string) => showAlert(title, message, 'warning');
 
