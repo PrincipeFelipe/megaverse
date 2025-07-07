@@ -10,6 +10,10 @@ export interface ReservationConfig {
   allowed_end_time: string;   // Formato HH:MM (ej: "22:00")
   requires_approval_for_all_day: boolean;
   
+  // Configuración para evitar reservas consecutivas
+  allow_consecutive_reservations: boolean; // Permitir reservas consecutivas del mismo usuario
+  min_time_between_reservations: number; // Tiempo mínimo (en minutos) entre reservas consecutivas
+  
   // Configuración de cuotas
   normal_fee: number;       // Cuota mensual normal (€)
   maintenance_fee: number;  // Cuota mensual de mantenimiento (€)
