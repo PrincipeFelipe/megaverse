@@ -18,6 +18,8 @@ const ReservationConfigPage: React.FC = () => {
   const [startTime, setStartTime] = useState<string>("08:00");
   const [endTime, setEndTime] = useState<string>("22:00");
   const [requiresApproval, setRequiresApproval] = useState<boolean>(true);
+  const [allowConsecutive, setAllowConsecutive] = useState<boolean>(true);
+  const [minTimeBetween, setMinTimeBetween] = useState<number>(0);
   
   // Formulario - Configuración de cuotas
   const [normalFee, setNormalFee] = useState<number>(30);
@@ -39,6 +41,14 @@ const ReservationConfigPage: React.FC = () => {
         setEndTime(configData.allowed_end_time);
         setRequiresApproval(configData.requires_approval_for_all_day);
         
+        // Reservas consecutivas
+        if (configData.allow_consecutive_reservations !== undefined) {
+          setAllowConsecutive(configData.allow_consecutive_reservations);
+        }
+        if (configData.min_time_between_reservations !== undefined) {
+          setMinTimeBetween(configData.min_time_between_reservations);
+        }
+        
         // Cuotas
         if(configData.normal_fee !== undefined) {
           setNormalFee(configData.normal_fee);
@@ -59,15 +69,20 @@ const ReservationConfigPage: React.FC = () => {
           allowed_end_time: '22:00',
           requires_approval_for_all_day: true,
           normal_fee: 30,
-          maintenance_fee: 15
+          maintenance_fee: 15,
+          allow_consecutive_reservations: true,
+          min_time_between_reservations: 0
         };
         
-        setConfig(defaultConfig);        setMaxHours(defaultConfig.max_hours_per_reservation);
+        setConfig(defaultConfig);
+        setMaxHours(defaultConfig.max_hours_per_reservation);
         setMaxReservations(defaultConfig.max_reservations_per_user_per_day);
         setMinHoursAdvance(defaultConfig.min_hours_in_advance);
         setStartTime(defaultConfig.allowed_start_time);
         setEndTime(defaultConfig.allowed_end_time);
         setRequiresApproval(defaultConfig.requires_approval_for_all_day);
+        setAllowConsecutive(defaultConfig.allow_consecutive_reservations);
+        setMinTimeBetween(defaultConfig.min_time_between_reservations);
         setNormalFee(defaultConfig.normal_fee);
         setMaintenanceFee(defaultConfig.maintenance_fee);
       } finally {
@@ -92,7 +107,9 @@ const ReservationConfigPage: React.FC = () => {
         allowed_end_time: endTime,
         requires_approval_for_all_day: requiresApproval,
         normal_fee: normalFee,
-        maintenance_fee: maintenanceFee
+        maintenance_fee: maintenanceFee,
+        allow_consecutive_reservations: allowConsecutive,
+        min_time_between_reservations: minTimeBetween
       });
       
       const updatedConfig: ConfigResponse = await configService.updateConfig({
@@ -103,7 +120,9 @@ const ReservationConfigPage: React.FC = () => {
         allowed_end_time: endTime,
         requires_approval_for_all_day: requiresApproval,
         normal_fee: normalFee,
-        maintenance_fee: maintenanceFee
+        maintenance_fee: maintenanceFee,
+        allow_consecutive_reservations: allowConsecutive,
+        min_time_between_reservations: minTimeBetween
       });
       
       setConfig(updatedConfig.config);
@@ -141,7 +160,8 @@ const ReservationConfigPage: React.FC = () => {
       isTimeFormatValid(startTime) &&
       isTimeFormatValid(endTime) &&
       normalFee >= 0 &&
-      maintenanceFee >= 0
+      maintenanceFee >= 0 &&
+      minTimeBetween >= 0
     );
   };
   
@@ -273,6 +293,49 @@ const ReservationConfigPage: React.FC = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         Si está marcado, las reservas de todo el día requerirán aprobación de un administrador.
+                      </p>
+                    </div>
+
+                    {/* Permitir reservas consecutivas */}
+                    <div>
+                      <div className="flex items-center">
+                        <input
+                          id="allowConsecutive"
+                          type="checkbox"
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          checked={allowConsecutive}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            setAllowConsecutive(isChecked);
+                            // No reseteamos el valor del tiempo mínimo, solo lo mantenemos
+                          }}
+                        />
+                        <label htmlFor="allowConsecutive" className="ml-2 block text-sm font-medium">
+                          Permitir reservas consecutivas
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Si está marcado, se permitirán reservas que comiencen justo cuando termina otra o terminen justo cuando comienza otra.
+                      </p>
+                    </div>
+
+                    {/* Tiempo mínimo entre reservas */}
+                    <div>
+                      <label htmlFor="minTimeBetween" className="block text-sm font-medium mb-1">
+                        Tiempo mínimo entre reservas (minutos)
+                      </label>
+                      <Input
+                        id="minTimeBetween"
+                        type="number"
+                        min="0"
+                        value={minTimeBetween}
+                        onChange={(e) => setMinTimeBetween(Number(e.target.value))}
+                        required
+                        disabled={allowConsecutive}
+                        className={allowConsecutive ? "bg-gray-100 cursor-not-allowed" : ""}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Minutos mínimos que deben pasar entre el final de una reserva y el inicio de otra. Solo aplica cuando las reservas consecutivas no están permitidas.
                       </p>
                     </div>
                   </div>

@@ -15,9 +15,9 @@ export const getReservationConfig = async (req, res) => {  try {
         INSERT INTO reservation_config 
         (max_hours_per_reservation, max_reservations_per_user_per_day, min_hours_in_advance, 
         allowed_start_time, allowed_end_time, requires_approval_for_all_day, 
-        normal_fee, maintenance_fee) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [4, 1, 0, '08:00', '22:00', 1, 30, 15]);
+        normal_fee, maintenance_fee, allow_consecutive_reservations, min_time_between_reservations) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [4, 1, 0, '08:00', '22:00', 1, 30, 15, 1, 0]);
       
       const [defaultConfig] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');
       connection.release();
@@ -51,7 +51,9 @@ export const updateReservationConfig = async (req, res) => {
       allowed_end_time,
       requires_approval_for_all_day,
       normal_fee,
-      maintenance_fee
+      maintenance_fee,
+      allow_consecutive_reservations,
+      min_time_between_reservations
     } = req.body;
     
     // Construir objeto para actualización con solo los campos proporcionados
@@ -96,6 +98,17 @@ export const updateReservationConfig = async (req, res) => {
     if (maintenance_fee !== undefined) {
       updateFields.push('maintenance_fee = ?');
       updateValues.push(maintenance_fee);
+    }
+
+    // Campos de reservas consecutivas
+    if (allow_consecutive_reservations !== undefined) {
+      updateFields.push('allow_consecutive_reservations = ?');
+      updateValues.push(allow_consecutive_reservations ? 1 : 0);
+    }
+    
+    if (min_time_between_reservations !== undefined) {
+      updateFields.push('min_time_between_reservations = ?');
+      updateValues.push(min_time_between_reservations);
     }
     
     // Si no hay campos para actualizar, devolver error

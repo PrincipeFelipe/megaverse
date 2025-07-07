@@ -30,6 +30,8 @@ export const configService = {
         requires_approval_for_all_day: true,
         normal_fee: 30,
         maintenance_fee: 15,
+        allow_consecutive_reservations: true,
+        min_time_between_reservations: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

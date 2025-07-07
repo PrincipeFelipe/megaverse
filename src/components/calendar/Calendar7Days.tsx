@@ -93,6 +93,7 @@ interface TableSelectionPopoverProps {
   onSelectTable: (tableId: number, start: Date, end: Date) => void;
   onClose: () => void;
   position: { top: number; left: number };
+  checkForConsecutiveReservations: (tableId: number, start: Date, end: Date) => boolean;
 }
 
 // Componente para seleccionar mesa
@@ -102,7 +103,8 @@ const TableSelectionPopover: React.FC<TableSelectionPopoverProps> = ({
   end,
   onSelectTable,
   onClose,
-  position
+  position,
+  checkForConsecutiveReservations
 }) => {
   return (
     <div 
@@ -137,8 +139,10 @@ const TableSelectionPopover: React.FC<TableSelectionPopoverProps> = ({
             key={table.id}
             className="p-2.5 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800"
             onClick={() => {
-              onSelectTable(table.id, start, end);
-              onClose();
+              if (checkForConsecutiveReservations(table.id, start, end)) {
+                onSelectTable(table.id, start, end);
+                onClose();
+              }
             }}
           >
             <div className="font-medium text-gray-800 dark:text-gray-100">{table.name}</div>
@@ -322,8 +326,11 @@ const Calendar7Days: React.FC<CalendarProps> = ({
       
       setShowTableSelector(true);
     } else if (tables.length === 1) {
-      // Si solo hay una mesa, seleccionarla directamente
-      onSelectSlot(tables[0].id, selectedStart, selectedEnd);
+      // Si solo hay una mesa, verificar si hay conflictos y seleccionarla si está disponible
+      const tableId = tables[0].id;
+      if (checkForConsecutiveReservations(tableId, selectedStart, selectedEnd)) {
+        onSelectSlot(tableId, selectedStart, selectedEnd);
+      }
     }
   };
   // Manejar clic en un evento (reserva)
@@ -392,6 +399,131 @@ const Calendar7Days: React.FC<CalendarProps> = ({
     const newViewType = viewInfo.view.type;
     setCurrentViewType(newViewType);
     console.log(`Vista cambiada a: ${newViewType}`);
+  };
+    // Verificar si hay alguna reserva consecutiva o si no hay suficiente tiempo entre reservas
+  const checkForConsecutiveReservations = (tableId: number, start: Date, end: Date) => {
+    // Verificación 1: Comprobar si la mesa está disponible
+    const tableReservations = reservations.filter(r => 
+      r.table_id === tableId && 
+      r.status === 'active' && 
+      (!user || r.user_id !== user.id) // Ignorar reservas propias del usuario en la mesa
+    );
+    
+    const table = tables.find(t => t.id === tableId);
+    const tableName = table ? table.name : `Mesa ${tableId}`;
+    
+    // Obtener configuración de reservas consecutivas y tiempo mínimo entre reservas
+    const allowConsecutive = window.reservationConfig?.allow_consecutive_reservations ?? true;
+    const minTimeBetween = window.reservationConfig?.min_time_between_reservations ?? 0;
+    
+    console.log('Verificando reserva en mesa:', tableId, 'Inicio:', start, 'Fin:', end);
+    console.log('Configuración actual:', {
+      allow_consecutive_reservations: allowConsecutive,
+      min_time_between_reservations: minTimeBetween
+    });
+    
+    // Primero verificar si la mesa está disponible
+    for (const reservation of tableReservations) {
+      const resStart = new Date(reservation.start_time);
+      const resEnd = new Date(reservation.end_time);
+      
+      // Convertir las fechas a timestamp para comparación
+      const selectedStartTime = start.getTime();
+      const selectedEndTime = end.getTime();
+      const reservationStartTime = resStart.getTime();
+      const reservationEndTime = resEnd.getTime();
+      
+      // Si hay superposición, no permitir la reserva
+      if (
+        (selectedStartTime < reservationEndTime && selectedEndTime > reservationStartTime) ||
+        selectedStartTime === reservationStartTime ||
+        selectedEndTime === reservationEndTime
+      ) {
+        showError(
+          'Horario no disponible',
+          `La mesa ${tableName} ya está reservada en ese horario (${resStart.toLocaleTimeString()} a ${resEnd.toLocaleTimeString()}).`
+        );
+        return false;
+      }
+    }
+    
+    // Verificación 2: Comprobar si el usuario tiene reservas consecutivas o demasiado cercanas
+    if (user) {
+      // Filtrar las reservas activas del usuario actual para el mismo día
+      const userReservations = reservations.filter(r => 
+        r.user_id === user.id && 
+        r.status === 'active' &&
+        new Date(r.start_time).toDateString() === start.toDateString()
+      );
+      
+      for (const reservation of userReservations) {
+        const resStart = new Date(reservation.start_time);
+        const resEnd = new Date(reservation.end_time);
+        
+        // Convertir las fechas a timestamp para comparación
+        const selectedStartTime = start.getTime();
+        const selectedEndTime = end.getTime();
+        const reservationStartTime = resStart.getTime();
+        const reservationEndTime = resEnd.getTime();
+        
+        // Comprobar si el inicio o fin coincide con fin o inicio de alguna reserva existente (consecutivas)
+        const isConsecutiveReservation = 
+          selectedStartTime === reservationEndTime ||
+          selectedEndTime === reservationStartTime;
+          
+        // Si son consecutivas y no está permitido, mostrar error específico
+        if (isConsecutiveReservation && !allowConsecutive) {
+          const otherTable = tables.find(t => t.id === reservation.table_id)?.name || 'otra mesa';
+          showError(
+            'Reservas consecutivas no permitidas',
+            `No se permiten reservas consecutivas según la configuración actual del sistema. Ya tienes una reserva en ${otherTable} de ${resStart.toLocaleTimeString()} a ${resEnd.toLocaleTimeString()}.`
+          );
+          console.log('Reservas consecutivas no permitidas. Configuración:', { allowConsecutive });
+          return false;
+        }
+        
+        // Si son consecutivas y están permitidas, no verificamos el tiempo mínimo entre reservas
+        if (isConsecutiveReservation && allowConsecutive) {
+          console.log('Reservas consecutivas permitidas. Se omite verificación de tiempo mínimo.');
+          continue; // Saltamos a la siguiente reserva sin verificar tiempo mínimo
+        }
+        
+        // Verificar el tiempo mínimo entre reservas no consecutivas
+        let minutesBetween = 0;
+        let isTooClose = false;
+        
+        // Caso 1: La reserva nueva comienza después de una existente
+        if (selectedStartTime > reservationEndTime) {
+          minutesBetween = Math.floor((selectedStartTime - reservationEndTime) / (1000 * 60));
+          isTooClose = minutesBetween < minTimeBetween;
+        }
+        // Caso 2: La reserva existente comienza después de la nueva
+        else if (selectedEndTime < reservationStartTime) {
+          minutesBetween = Math.floor((reservationStartTime - selectedEndTime) / (1000 * 60));
+          isTooClose = minutesBetween < minTimeBetween;
+        }
+        
+        // Si no hay suficiente tiempo entre reservas, mostrar error
+        if (isTooClose) {
+          const otherTable = tables.find(t => t.id === reservation.table_id)?.name || 'otra mesa';
+          showError(
+            'Tiempo insuficiente entre reservas',
+            `Debe haber al menos ${minTimeBetween} minutos entre tus reservas. Tienes otra reserva en ${otherTable} de ${resStart.toLocaleTimeString()} a ${resEnd.toLocaleTimeString()}, con solo ${minutesBetween} minutos de diferencia.`
+          );
+          console.log('Tiempo insuficiente entre reservas del usuario:', { 
+            minTimeBetween, 
+            minutesBetween, 
+            start: start.toLocaleTimeString(), 
+            end: end.toLocaleTimeString(),
+            resStart: resStart.toLocaleTimeString(),
+            resEnd: resEnd.toLocaleTimeString()
+          });
+          return false;
+        }
+      }
+    }
+    
+    return true;
   };
     // Configurar la vista para mostrar exactamente una semana a partir del día actual
     return (
@@ -486,6 +618,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
           onSelectTable={onSelectSlot}
           onClose={() => setShowTableSelector(false)}
           position={popoverPosition}
+          checkForConsecutiveReservations={checkForConsecutiveReservations}
         />
       )}
     </div>
