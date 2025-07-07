@@ -147,13 +147,18 @@ export const ProfilePage: React.FC = () => {
         setLoading(true);
         showLoading('Eliminando avatar...');
         
-        await uploadService.deleteAvatar();
-        // Recargar usuario manualmente para actualizar avatar
-        await updateUserData();
+        // Pasar true para recargar la página después de eliminar el avatar
+        // Ya no pasamos true porque manejaremos el refresco después de hacer clic en Aceptar
+        await uploadService.deleteAvatar(false);
         
         closeLoading();
         setAvatarPreview(null);
-        showSuccess('Imagen eliminada', 'Tu avatar ha sido eliminado correctamente');
+        
+        // Mostrar mensaje de éxito y recargar la página cuando el usuario haga clic en Aceptar
+        showSuccess('Imagen eliminada', 'Tu avatar ha sido eliminado correctamente', () => {
+          console.log('Usuario hizo clic en Aceptar después de eliminar avatar, recargando página...');
+          window.location.reload();
+        });
       } catch (error) {
         closeLoading();
         showError('Error', 'No se ha podido eliminar el avatar');
@@ -189,9 +194,9 @@ export const ProfilePage: React.FC = () => {
           return;
         }
         
-        // Subir avatar y actualizar el contexto de autenticación
-        await uploadService.uploadAvatar(selectedFile);
-        // Actualizar el usuario en el contexto
+        // No recargamos aquí la página, dejamos que se complete todo el proceso de actualización
+        await uploadService.uploadAvatar(selectedFile, false);
+        // Actualizamos el contexto para que el resto del proceso use los datos actualizados
         await updateUserData();
       }
       
@@ -252,10 +257,15 @@ export const ProfilePage: React.FC = () => {
       if (confirmPasswordInput) confirmPasswordInput.value = '';
       
       closeLoading();
-      showSuccess('Perfil actualizado', 'Tus datos han sido actualizados correctamente');
       
       // Limpiar el archivo seleccionado
       setSelectedFile(null);
+      
+      // Mostrar mensaje de éxito y recargar la página cuando el usuario haga clic en Aceptar
+      showSuccess('Perfil actualizado', 'Tus datos han sido actualizados correctamente', () => {
+        console.log('Usuario hizo clic en Aceptar, recargando página...');
+        window.location.reload();
+      });
       
     } catch (error) {
       closeLoading();
@@ -310,7 +320,7 @@ export const ProfilePage: React.FC = () => {
                         alt="Avatar" 
                         className="w-full h-full object-cover"
                         onLoad={() => console.log('Avatar cargado exitosamente en ProfilePage')}
-                        onError={(e) => {
+                        onError={() => {
                           console.error(`Error al cargar avatar desde URL: ${avatarPreview}`);
                           console.error('URL original del usuario:', user?.avatar_url);
                           
@@ -367,10 +377,11 @@ export const ProfilePage: React.FC = () => {
                   {avatarPreview && (
                     <Button
                       type="button"
-                      variant="danger"
+                      variant="outline"
                       size="sm"
                       onClick={handleRemoveAvatar}
                       disabled={loading}
+                      className="text-red-500 border-red-500 hover:bg-red-500/10"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Eliminar

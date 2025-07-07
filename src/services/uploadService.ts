@@ -5,7 +5,7 @@ export const uploadService = {
    * @param file Archivo de imagen a subir como avatar
    * @returns Datos actualizados del usuario con la nueva URL del avatar
    */
-  uploadAvatar: async (file: File) => {
+  uploadAvatar: async (file: File, reloadAfter: boolean = false) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -57,6 +57,15 @@ export const uploadService = {
       }
       
       const responseData = await response.json();
+      
+      // Si se solicita recargar la página después de la subida
+      if (reloadAfter) {
+        console.log('Recargando página después de subir avatar...');
+        setTimeout(() => {
+          window.location.reload();
+        }, 500); // pequeño retraso para asegurarnos de que todo se guarde correctamente
+      }
+      
       return responseData.user;
     } catch (error) {
       console.error('Error al subir avatar:', error instanceof Error ? error.message : 'Error desconocido');
@@ -68,7 +77,7 @@ export const uploadService = {
    * Elimina el avatar actual del usuario
    * @returns Datos actualizados del usuario sin avatar
    */
-  deleteAvatar: async () => {
+  deleteAvatar: async (reloadAfter: boolean = false) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -104,6 +113,15 @@ export const uploadService = {
       }
       
       const responseData = await response.json();
+      
+      // Si se solicita recargar la página después de eliminar el avatar
+      if (reloadAfter) {
+        console.log('Recargando página después de eliminar avatar...');
+        setTimeout(() => {
+          window.location.reload();
+        }, 500); // pequeño retraso para asegurarnos de que todo se guarde correctamente
+      }
+      
       return responseData.user;
     } catch (error) {
       console.error('Error al eliminar avatar:', error instanceof Error ? error.message : 'Error desconocido');
