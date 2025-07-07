@@ -19,8 +19,12 @@ router.post('/', [
   check('amount').isFloat({ min: 0.01 }).withMessage('El monto debe ser un número positivo'),
   check('paymentMethod').isIn(['efectivo', 'transferencia', 'bizum']).withMessage('El método de pago debe ser efectivo, transferencia o bizum'),
   check('referenceNumber').optional().isString().withMessage('El número de referencia debe ser un texto'),
-  check('notes').optional().isString().withMessage('Las notas deben ser un texto')
+  check('notes').optional().isString().withMessage('Las notas deben ser un texto'),
+  check('consumptionIds').optional().isArray().withMessage('Los IDs de consumo deben ser un array')
 ], consumptionPaymentsController.createConsumptionPayment);
+
+// Aprobar un pago (solo administradores)
+router.put('/:paymentId/approve', isAdmin, consumptionPaymentsController.approvePayment);
 
 // Obtener historial de pagos
 router.get('/', consumptionPaymentsController.getConsumptionPayments);

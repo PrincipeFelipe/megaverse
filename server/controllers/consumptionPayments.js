@@ -17,7 +17,7 @@ export const getUserDebt = async (req, res) => {
     
     const connection = await pool.getConnection();
     
-    // Obtener el balance del usuario y todos los pagos
+    // Obtener el balance del usuario
     const [users] = await connection.query(
       'SELECT balance FROM users WHERE id = ?',
       [userId]
@@ -28,55 +28,52 @@ export const getUserDebt = async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
     
-    const { balance } = users[0];
+    // Calcular la deuda total basada en consumos no pagados (paid = 0)
+    const [unpaidConsumptions] = await connection.query(
+      `SELECT SUM(total_price) as total_unpaid
+       FROM consumptions
+       WHERE user_id = ? AND paid = 0`,
+      [userId]
+    );
+    
+    // Calcular el total de consumos en proceso de pago (paid = 1)
+    const [pendingApprovalConsumptions] = await connection.query(
+      `SELECT SUM(total_price) as total_pending_approval
+       FROM consumptions
+       WHERE user_id = ? AND paid = 1`,
+      [userId]
+    );
     
     // Obtener el historial de pagos
     const [payments] = await connection.query(
-      `SELECT * FROM consumption_payments 
-       WHERE user_id = ? 
-       ORDER BY payment_date DESC`,
+      `SELECT cp.*, 
+       u_created.name as created_by_name,
+       u_approved.name as approved_by_name,
+       (SELECT COUNT(*) FROM consumption_payments_details WHERE payment_id = cp.id) as consumptions_count
+       FROM consumption_payments cp
+       JOIN users u_created ON cp.created_by = u_created.id
+       LEFT JOIN users u_approved ON cp.approved_by = u_approved.id
+       WHERE cp.user_id = ? 
+       ORDER BY cp.payment_date DESC`,
       [userId]
     );
     
-    // La lógica es:
-    // 1. Cuando se crea un pago, se aumenta el balance del usuario (se reduce la deuda) 
-    //    independientemente de si está aprobado o no
-    // 2. Para mostrar la deuda real, debemos considerar que los pagos pendientes y rechazados 
-    //    no deberían contar como pagados
+    const { balance } = users[0];
+    const totalUnpaid = parseFloat(unpaidConsumptions[0].total_unpaid || 0);
+    const totalPendingApproval = parseFloat(pendingApprovalConsumptions[0].total_pending_approval || 0);
     
-    // Obtener la suma de todos los pagos pendientes y rechazados
-    // Estos pagos deben ser "añadidos de nuevo" a la deuda
-    const [nonApprovedPayments] = await connection.query(
-      `SELECT SUM(amount) as totalAmount 
-       FROM consumption_payments 
-       WHERE user_id = ? AND status != 'aprobado'`,
-      [userId]
-    );
-      // Imprimir información de debug
-    console.log('Balance del usuario:', balance);
-    console.log('Pagos no aprobados:', nonApprovedPayments[0]);
+    // Calcular la deuda real considerando tanto el balance como los consumos pendientes
+    const totalDebt = totalUnpaid + totalPendingApproval;
     
-    // Cálculo de la deuda:
-    // 1. Si el balance es negativo, esa es la deuda base
-    // 2. A la deuda base se le suman los pagos pendientes y rechazados
-    //    porque estos fueron "restados" de la deuda cuando se crearon pero no están confirmados
-    const baseDebt = balance < 0 ? Math.abs(balance) : 0;
-    const nonApprovedAmount = parseFloat(nonApprovedPayments[0].totalAmount || 0);
-    
-    console.log('Deuda base (balance negativo):', baseDebt);
-    console.log('Cantidad no aprobada:', nonApprovedAmount);
-    console.log('Deuda total calculada:', baseDebt + nonApprovedAmount);
-    
-    // La deuda mostrada al usuario debe incluir los pagos no aprobados
     connection.release();
-      // Asegurarse de que la deuda nunca sea negativa
-    const totalDebt = Math.max(0, baseDebt + nonApprovedAmount);
     
-    console.log('Valor final totalDebt a devolver:', totalDebt);
-    
-    // Asegurarse de que estamos enviando un número y no un string
     res.status(200).json({
-      currentDebt: Number(totalDebt), // Convertir explícitamente a número
+      balance: balance,
+      currentDebt: {
+        unpaid: totalUnpaid,
+        pendingApproval: totalPendingApproval,
+        total: totalDebt
+      },
       paymentHistory: payments
     });
     
@@ -100,7 +97,8 @@ export const createConsumptionPayment = async (req, res) => {
       amount,
       paymentMethod,
       referenceNumber,
-      notes
+      notes,
+      consumptionIds // Nuevo: Array con IDs de consumos a pagar
     } = req.body;
     
     // El usuario a pagar puede ser el que hace la petición o uno especificado por un admin
@@ -150,48 +148,66 @@ export const createConsumptionPayment = async (req, res) => {
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
       
-      const { balance } = users[0];
+      // Si se especifican consumptionIds, verificar que existan y pertenezcan al usuario
+      let consumptionsToPayIds = [];
+      let totalConsumptionsAmount = 0;
       
-      // Obtener la suma de todos los pagos pendientes y rechazados
-      const [nonApprovedPayments] = await connection.query(
-        `SELECT SUM(amount) as totalAmount 
-         FROM consumption_payments 
-         WHERE user_id = ? AND status != 'aprobado'`,
-        [userIdToUpdate]
-      );
-      
-      // Calcular deuda total considerando el balance y los pagos no aprobados
-      const baseDebt = balance < 0 ? Math.abs(balance) : 0;
-      const nonApprovedAmount = parseFloat(nonApprovedPayments[0].totalAmount || 0);
-      const totalDebt = baseDebt + nonApprovedAmount;
-      
-      console.log('Creación de pago - Balance del usuario:', balance);
-      console.log('Creación de pago - Pagos no aprobados:', nonApprovedAmount);
-      console.log('Creación de pago - Deuda total calculada:', totalDebt);
-        // Verificar si hay un reintento de pago específicado en la solicitud
-      const isRetry = req.body.isRetry === true;
-      console.log('¿Es reintento de pago?', isRetry);
-      
-      // En caso de reintento de pago, no verificamos la deuda existente
-      if (totalDebt <= 0 && !isRetry) {
-        await connection.rollback();
-        connection.release();
-        return res.status(400).json({ error: 'El usuario no tiene deuda pendiente' });
-      }
+      if (consumptionIds && consumptionIds.length > 0) {
+        // Verificar que los consumos existen y pertenecen al usuario
+        const [consumptions] = await connection.query(
+          `SELECT id, total_price, paid FROM consumptions 
+           WHERE id IN (?) AND user_id = ? AND paid = 0`,
+          [consumptionIds, userIdToUpdate]
+        );
         
-      // Determinar el monto a pagar:
-      // - Si es un reintento, usar el monto especificado
-      // - Si es un pago normal, ajustar al máximo de la deuda si es necesario
-      let amountToPay = amount;
-      if (!isRetry && amount > totalDebt) {
-        amountToPay = totalDebt;
+        if (consumptions.length !== consumptionIds.length) {
+          await connection.rollback();
+          connection.release();
+          return res.status(400).json({ 
+            error: 'Algunos consumos especificados no existen, no pertenecen al usuario o ya están pagados'
+          });
+        }
+        
+        // Guardar los IDs y calcular el total
+        consumptionsToPayIds = consumptions.map(c => c.id);
+        totalConsumptionsAmount = consumptions.reduce((sum, c) => sum + parseFloat(c.total_price), 0);
+        
+        // Verificar que el monto del pago cubra los consumos seleccionados
+        if (amount < totalConsumptionsAmount) {
+          await connection.rollback();
+          connection.release();
+          return res.status(400).json({ 
+            error: `El monto del pago (${amount}) es insuficiente para cubrir los consumos seleccionados (${totalConsumptionsAmount})`
+          });
+        }
+      } else {
+        // Si no se especifican consumos, obtener todos los consumos pendientes
+        const [pendingConsumptions] = await connection.query(
+          `SELECT id, total_price FROM consumptions 
+           WHERE user_id = ? AND paid = 0 
+           ORDER BY created_at ASC`,
+          [userIdToUpdate]
+        );
+        
+        // Determinar qué consumos se pueden pagar con el monto disponible
+        let remainingAmount = amount;
+        for (const consumption of pendingConsumptions) {
+          if (remainingAmount >= parseFloat(consumption.total_price)) {
+            consumptionsToPayIds.push(consumption.id);
+            totalConsumptionsAmount += parseFloat(consumption.total_price);
+            remainingAmount -= parseFloat(consumption.total_price);
+          } else {
+            break; // No hay suficiente monto para más consumos
+          }
+        }
       }
-      console.log('Monto a pagar final:', amountToPay, 'de un total de deuda de:', totalDebt);
+      
+      const { balance } = users[0];
       
       // Actualizar el balance del usuario
       await connection.query(
         'UPDATE users SET balance = balance + ? WHERE id = ?',
-        [amountToPay, userIdToUpdate]
+        [amount, userIdToUpdate]
       );
       
       // Registrar el pago
@@ -201,7 +217,7 @@ export const createConsumptionPayment = async (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
           userIdToUpdate,
-          amountToPay,
+          amount,
           paymentMethod,
           referenceNumber || null,
           notes || null,
@@ -209,13 +225,31 @@ export const createConsumptionPayment = async (req, res) => {
         ]
       );
       
+      const paymentId = result.insertId;
+      
+      // Marcar los consumos como pendientes de aprobación (paid = 1)
+      if (consumptionsToPayIds.length > 0) {
+        await connection.query(
+          'UPDATE consumptions SET paid = 1 WHERE id IN (?)',
+          [consumptionsToPayIds]
+        );
+        
+        // Registrar los consumos en la tabla consumption_payments_details
+        for (const consumptionId of consumptionsToPayIds) {
+          await connection.query(
+            'INSERT INTO consumption_payments_details (payment_id, consumption_id) VALUES (?, ?)',
+            [paymentId, consumptionId]
+          );
+        }
+      }
+      
       // Obtener el pago recién creado
       const [paymentData] = await connection.query(
         `SELECT cp.*, u.name as user_name, u.username as user_username
          FROM consumption_payments cp
          JOIN users u ON cp.user_id = u.id
          WHERE cp.id = ?`,
-        [result.insertId]
+        [paymentId]
       );
       
       // Confirmar transacción
@@ -232,6 +266,8 @@ export const createConsumptionPayment = async (req, res) => {
       return res.status(201).json({
         message: 'Pago registrado correctamente',
         payment: paymentData[0],
+        consumptionsPaid: consumptionsToPayIds.length,
+        totalConsumptionsAmount,
         newBalance: updatedUser[0].balance,
         remainingDebt: updatedUser[0].balance < 0 ? Math.abs(updatedUser[0].balance) : 0
       });
@@ -688,5 +724,125 @@ export const retryConsumptionPayment = async (req, res) => {
   } catch (error) {
     console.error('Error al reintentar el pago:', error);
     res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+// Aprobar un pago de consumiciones
+export const approvePayment = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    
+    // Solo un admin puede aprobar pagos
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'No tienes permisos para aprobar pagos' });
+    }
+    
+    const connection = await pool.getConnection();
+    
+    try {
+      // Iniciar transacción
+      await connection.beginTransaction();
+      
+      // Verificar que el pago existe y está pendiente
+      const [payments] = await connection.query(
+        'SELECT * FROM consumption_payments WHERE id = ? AND status = 0 FOR UPDATE',
+        [paymentId]
+      );
+      
+      if (payments.length === 0) {
+        await connection.rollback();
+        connection.release();
+        return res.status(404).json({ error: 'Pago no encontrado o ya procesado' });
+      }
+      
+      // Actualizar el estado del pago a aprobado (status = 1)
+      await connection.query(
+        'UPDATE consumption_payments SET status = 1, approved_by = ?, approved_at = NOW() WHERE id = ?',
+        [req.user.id, paymentId]
+      );
+      
+      // Obtener los consumos asociados a este pago
+      const [paymentDetails] = await connection.query(
+        'SELECT consumption_id FROM consumption_payments_details WHERE payment_id = ?',
+        [paymentId]
+      );
+      
+      const consumptionIds = paymentDetails.map(detail => detail.consumption_id);
+      
+      // Si hay consumos asociados, marcarlos como pagados (paid = 2)
+      if (consumptionIds.length > 0) {
+        await connection.query(
+          'UPDATE consumptions SET paid = 2 WHERE id IN (?)',
+          [consumptionIds]
+        );
+      } else {
+        // Si no hay consumos asociados explícitamente, buscar consumos en estado "pendiente de aprobación"
+        // del mismo usuario del pago y marcarlos como pagados hasta cubrir el monto del pago
+        const payment = payments[0];
+        
+        const [pendingConsumptions] = await connection.query(
+          `SELECT id, total_price FROM consumptions 
+           WHERE user_id = ? AND paid = 1 
+           ORDER BY created_at ASC`,
+          [payment.user_id]
+        );
+        
+        let remainingAmount = parseFloat(payment.amount);
+        const consumptionsToUpdate = [];
+        
+        for (const consumption of pendingConsumptions) {
+          if (remainingAmount >= parseFloat(consumption.total_price)) {
+            consumptionsToUpdate.push(consumption.id);
+            remainingAmount -= parseFloat(consumption.total_price);
+            
+            // Registrar en la tabla de detalles
+            await connection.query(
+              'INSERT INTO consumption_payments_details (payment_id, consumption_id) VALUES (?, ?)',
+              [paymentId, consumption.id]
+            );
+          } else {
+            break;
+          }
+        }
+        
+        if (consumptionsToUpdate.length > 0) {
+          await connection.query(
+            'UPDATE consumptions SET paid = 2 WHERE id IN (?)',
+            [consumptionsToUpdate]
+          );
+        }
+      }
+      
+      // Confirmar transacción
+      await connection.commit();
+      
+      // Obtener el pago actualizado
+      const [updatedPayment] = await connection.query(
+        `SELECT cp.*, 
+         u_created.name as created_by_name, 
+         u_approved.name as approved_by_name
+         FROM consumption_payments cp
+         JOIN users u ON cp.user_id = u.id
+         JOIN users u_created ON cp.created_by = u_created.id
+         LEFT JOIN users u_approved ON cp.approved_by = u_approved.id
+         WHERE cp.id = ?`,
+        [paymentId]
+      );
+      
+      connection.release();
+      
+      return res.status(200).json({
+        message: 'Pago aprobado correctamente',
+        payment: updatedPayment[0]
+      });
+      
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('Error al aprobar el pago:', error);
+    return res.status(500).json({ error: 'Error del servidor al aprobar el pago' });
   }
 };

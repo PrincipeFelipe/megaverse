@@ -5,7 +5,13 @@ export const getAllConsumptions = async (req, res) => {
     const connection = await pool.getConnection();
     
     let query = `
-      SELECT c.*, p.name as product_name, u.name as user_name
+      SELECT c.*, p.name as product_name, u.name as user_name,
+      CASE 
+        WHEN c.paid = 0 THEN 'pendiente'
+        WHEN c.paid = 1 THEN 'procesando'
+        WHEN c.paid = 2 THEN 'pagado'
+        ELSE 'desconocido'
+      END as payment_status
       FROM consumptions c
       JOIN products p ON c.product_id = p.id
       JOIN users u ON c.user_id = u.id
@@ -44,7 +50,13 @@ export const getUserConsumptions = async (req, res) => {
     const connection = await pool.getConnection();
     
     const [consumptions] = await connection.query(
-      `SELECT c.*, p.name as product_name
+      `SELECT c.*, p.name as product_name,
+       CASE 
+         WHEN c.paid = 0 THEN 'pendiente'
+         WHEN c.paid = 1 THEN 'procesando'
+         WHEN c.paid = 2 THEN 'pagado'
+         ELSE 'desconocido'
+       END as payment_status
        FROM consumptions c
        JOIN products p ON c.product_id = p.id
        WHERE c.user_id = ?
@@ -133,13 +145,19 @@ export const createConsumption = async (req, res) => {
       
       // 7. Registrar el consumo
       const [result] = await connection.query(
-        'INSERT INTO consumptions (user_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)',
+        'INSERT INTO consumptions (user_id, product_id, quantity, total_price, paid) VALUES (?, ?, ?, ?, 0)',
         [userId, productId, quantity, totalPrice]
       );
       
       // 8. Obtener el consumo recién creado
       const [newConsumption] = await connection.query(
-        `SELECT c.*, p.name as product_name
+        `SELECT c.*, p.name as product_name,
+         CASE 
+           WHEN c.paid = 0 THEN 'pendiente'
+           WHEN c.paid = 1 THEN 'procesando'
+           WHEN c.paid = 2 THEN 'pagado'
+           ELSE 'desconocido'
+         END as payment_status
          FROM consumptions c
          JOIN products p ON c.product_id = p.id
          WHERE c.id = ?`,
@@ -170,5 +188,52 @@ export const createConsumption = async (req, res) => {
     console.error('Error al crear consumo:', error);
     // La conexión ya debería estar liberada por el bloque try-catch interior
     return res.status(500).json({ error: 'Error del servidor al crear consumo' });
+  }
+};
+
+export const getPendingConsumptions = async (req, res) => {
+  const { userId } = req.params;
+  
+  // Verificar permisos
+  if (req.user.id != userId && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'No tienes permiso para ver estos consumos' });
+  }
+  
+  try {
+    const connection = await pool.getConnection();
+    
+    // Obtener solo los consumos con paid=0 (no pagados)
+    const [consumptions] = await connection.query(
+      `SELECT c.*, p.name as product_name,
+       CASE 
+         WHEN c.paid = 0 THEN 'pendiente'
+         WHEN c.paid = 1 THEN 'procesando'
+         WHEN c.paid = 2 THEN 'pagado'
+         ELSE 'desconocido'
+       END as payment_status
+       FROM consumptions c
+       JOIN products p ON c.product_id = p.id
+       WHERE c.user_id = ? AND c.paid = 0
+       ORDER BY c.created_at DESC`,
+      [userId]
+    );
+    
+    // Calcular el total pendiente
+    const [totalResult] = await connection.query(
+      `SELECT SUM(total_price) as total_pending
+       FROM consumptions
+       WHERE user_id = ? AND paid = 0`,
+      [userId]
+    );
+    
+    connection.release();
+    
+    return res.status(200).json({
+      consumptions,
+      totalPending: totalResult[0].total_pending || 0
+    });
+  } catch (error) {
+    console.error('Error al obtener consumos pendientes del usuario:', error);
+    return res.status(500).json({ error: 'Error del servidor al obtener consumos pendientes' });
   }
 };
