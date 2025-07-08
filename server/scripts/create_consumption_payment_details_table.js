@@ -1,6 +1,6 @@
-const fs = require('fs');
-const mysql = require('mysql2/promise');
-const config = require('../config/database');
+import fs from 'fs';
+import mysql from 'mysql2/promise';
+import { pool } from '../config/database.js';
 
 async function createConsumptionPaymentDetailsTable() {
   console.log('Iniciando creación de tabla de detalles de pagos...');
@@ -17,9 +17,9 @@ async function createConsumptionPaymentDetailsTable() {
       .map(cmd => cmd.trim())
       .filter(cmd => cmd.length > 0);
     
-    // Conectar a la base de datos
+    // Usar el pool de conexiones existente
     console.log('Conectando a la base de datos...');
-    connection = await mysql.createConnection(config);
+    connection = await pool.getConnection();
     
     console.log('Aplicando cambios...');
     // Ejecutar cada comando por separado
@@ -34,8 +34,8 @@ async function createConsumptionPaymentDetailsTable() {
     console.error('Error al crear la tabla:', error);
   } finally {
     if (connection) {
-      await connection.end();
-      console.log('Conexión cerrada.');
+      connection.release();
+      console.log('Conexión liberada.');
     }
   }
 }

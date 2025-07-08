@@ -99,7 +99,9 @@ export const ReservationsPage: React.FC = () => {
             allowed_end_time: '22:00',
             requires_approval_for_all_day: true,
             normal_fee: 30,
-            maintenance_fee: 5
+            maintenance_fee: 5,
+            allow_consecutive_reservations: true,
+            min_time_between_reservations: 0
           };
           console.log("Usando configuración predeterminada:", window.reservationConfig);
         }
@@ -237,11 +239,26 @@ export const ReservationsPage: React.FC = () => {
         
         // Extraer horas y minutos
         const [startHours, startMinutes] = startHour.split(':').map(Number);
-        const [endHours, endMinutes] = endHour.split(':').map(Number);
+        const [endHours] = endHour.split(':').map(Number);
         
         startDate.setHours(startHours, startMinutes, 0, 0);
         endDate = new Date(startDate);
-        endDate.setHours(endHours, endMinutes, 0, 0);
+        
+        // La hora de fin debe ser hasta el final de la última hora permitida
+        // Por ejemplo, si allowed_end_time es "23:00", la reserva termina a las "00:00" del día siguiente
+        let finalEndHour = endHours + 1;
+        let nextDay = false;
+        
+        if (finalEndHour >= 24) {
+          finalEndHour = 0;
+          nextDay = true;
+        }
+        
+        if (nextDay) {
+          endDate.setDate(endDate.getDate() + 1);
+        }
+        
+        endDate.setHours(finalEndHour, 0, 0, 0);
       } else {
         // Si no es todo el día, usar la fecha de fin seleccionada
         endDate = new Date(selectedSlot.end);
@@ -405,10 +422,32 @@ export const ReservationsPage: React.FC = () => {
       let endDate: Date;
       
       if (allDayReservation) {
-        // Si es todo el día, establecer el horario de 8:00 a 22:00
-        startDate.setHours(8, 0, 0, 0);
+        // Si es todo el día, usar horarios de la configuración
+        const startHour = config.allowed_start_time;
+        const endHour = config.allowed_end_time;
+        
+        // Extraer horas y minutos
+        const [startHours, startMinutes] = startHour.split(':').map(Number);
+        const [endHours] = endHour.split(':').map(Number);
+        
+        startDate.setHours(startHours, startMinutes, 0, 0);
         endDate = new Date(startDate);
-        endDate.setHours(22, 0, 0, 0);
+        
+        // La hora de fin debe ser hasta el final de la última hora permitida
+        // Por ejemplo, si allowed_end_time es "23:00", la reserva termina a las "00:00" del día siguiente
+        let finalEndHour = endHours + 1;
+        let nextDay = false;
+        
+        if (finalEndHour >= 24) {
+          finalEndHour = 0;
+          nextDay = true;
+        }
+        
+        if (nextDay) {
+          endDate.setDate(endDate.getDate() + 1);
+        }
+        
+        endDate.setHours(finalEndHour, 0, 0, 0);
       } else {      // Si no es todo el día, usar la fecha de fin seleccionada
         endDate = new Date(selectedSlot!.end);
       }

@@ -14,7 +14,6 @@ import {
   EventSourceInput 
 } from '@fullcalendar/core';
 import { Reservation, Table, ReservationConfig } from '../../types';
-import { extractLocalTime } from '../../utils/dateUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { showError, showConfirm } from '../../utils/alerts';
 import './calendar-styles.css'; // Estilos personalizados existentes
@@ -79,6 +78,8 @@ interface CustomCalendarEvent {
     status: 'active' | 'cancelled' | 'completed';
     resource?: Table;
     isUserReservation: boolean;
+    isAllDayApproved?: boolean;
+    originalReservationId?: number;
   };
   backgroundColor?: string;
   borderColor?: string;
@@ -172,7 +173,6 @@ const Calendar7Days: React.FC<CalendarProps> = ({
   const [minTime, setMinTime] = useState<string>(getMinTime());
   const [maxTime, setMaxTime] = useState<string>(getMaxTime());
   const [initialDate, setInitialDate] = useState<Date>(new Date());
-  const [currentViewType, setCurrentViewType] = useState<string>('timeGridWeek');
   
   // Actualizar las horas de inicio y fin cuando cambie la configuración
   useEffect(() => {
@@ -197,14 +197,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
     return {}; // No establecemos límites para permitir navegación completa
   };
   
-  // Función para obtener la vista inicial de la semana
-  const getInitialWeekView = () => {
-    const today = new Date();
-    return {
-      start: today,
-      end: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 días a partir de hoy
-    };
-  };  // Configurar la vista inicial para mostrar la semana comenzando desde hoy
+  // Configurar la vista inicial para mostrar la semana comenzando desde hoy
   useEffect(() => {
     if (calendarRef.current) {
       const today = new Date();
@@ -236,7 +229,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
     // Convertir reservas al formato de eventos de FullCalendar y filtrar las canceladas
   const events: EventSourceInput = reservations
     .filter(reservation => reservation.status !== 'cancelled') // Filtrar reservas canceladas
-    .map(reservation => {
+    .flatMap(reservation => {
       // Determinar si la reserva pertenece al usuario actual
       const isUserReservation = user && reservation.user_id === user.id;
       
@@ -254,24 +247,58 @@ const Calendar7Days: React.FC<CalendarProps> = ({
         borderColor = '#ca8a04';
         classNames.push('reservation-own');
       }
+
+      // Para reservas de todo el día aprobadas, crear un solo evento que abarque todo el rango
+      if (reservation.all_day && reservation.approved) {
+        console.log(`🎯 Procesando reserva de todo el día aprobada:`, {
+          id: reservation.id,
+          user: reservation.user_name,
+          table: tables.find(t => t.id === reservation.table_id)?.name,
+          start: reservation.start_time,
+          end: reservation.end_time
+        });
+        
+        return [{
+          id: reservation.id.toString(),
+          title: `${reservation.user_name || 'Usuario'} - ${tables.find(t => t.id === reservation.table_id)?.name || 'Mesa'} (Todo el día - APROBADA)`,
+          start: reservation.start_time,
+          end: reservation.end_time,
+          allDay: false, // Mostrar en la vista de tiempo para que abarque las horas
+          extendedProps: {
+            tableId: reservation.table_id,
+            userId: reservation.user_id,
+            status: reservation.status,
+            isUserReservation,
+            isAllDayApproved: true,
+            originalReservationId: reservation.id
+          },
+          backgroundColor: '#9333ea', // Purple para reservas de todo el día aprobadas
+          borderColor: '#7c3aed',
+          textColor: '#ffffff',
+          classNames: [...classNames, 'reservation-all-day-approved']
+        } as CustomCalendarEvent];
+      }
       
-      return {
+      // Para reservas normales o de todo el día no aprobadas, mostrar como antes
+      return [{
         id: reservation.id.toString(),
-        title: `${reservation.user_name || 'Usuario'} - ${tables.find(t => t.id === reservation.table_id)?.name || 'Mesa'}`,
+        title: `${reservation.user_name || 'Usuario'} - ${tables.find(t => t.id === reservation.table_id)?.name || 'Mesa'}${reservation.all_day && !reservation.approved ? ' (Pendiente aprobación)' : ''}`,
         start: reservation.start_time,
         end: reservation.end_time,
-        allDay: reservation.all_day,
+        allDay: reservation.all_day && !reservation.approved, // Solo mostrar como allDay si no está aprobada
         extendedProps: {
           tableId: reservation.table_id,
           userId: reservation.user_id,
           status: reservation.status,
-          isUserReservation
+          isUserReservation,
+          isAllDayApproved: false,
+          originalReservationId: reservation.id
         },
         backgroundColor,
         borderColor,
         textColor: '#ffffff',
         classNames
-      } as CustomCalendarEvent;
+      } as CustomCalendarEvent];
     });
   
   // Manejar la selección de un slot en el calendario
@@ -304,7 +331,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
     if (selectInfo.view.type === 'dayGridMonth') {
       const calendarApi = selectInfo.view.calendar;
       calendarApi.changeView('timeGridDay', selectedStart);
-      setCurrentViewType('timeGridDay');
+      // setCurrentViewType('timeGridDay'); // Comentado - variable no utilizada
       return;
     }
     
@@ -397,7 +424,7 @@ const Calendar7Days: React.FC<CalendarProps> = ({
   // Gestionar cambios en la vista del calendario
   const handleViewChange = (viewInfo: ViewMountArg) => {
     const newViewType = viewInfo.view.type;
-    setCurrentViewType(newViewType);
+    // setCurrentViewType(newViewType); // Comentado - variable no utilizada
     console.log(`Vista cambiada a: ${newViewType}`);
   };
     // Verificar si hay alguna reserva consecutiva o si no hay suficiente tiempo entre reservas

@@ -94,12 +94,14 @@ export const createConsumptionPayment = async (req, res) => {
     
     const {
       userId,
-      amount,
+      amount: originalAmount,
       paymentMethod,
       referenceNumber,
       notes,
       consumptionIds // Nuevo: Array con IDs de consumos a pagar
     } = req.body;
+    
+    let amount = originalAmount;
     
     // El usuario a pagar puede ser el que hace la petición o uno especificado por un admin
     const userIdToUpdate = userId || req.user.id;
@@ -172,14 +174,12 @@ export const createConsumptionPayment = async (req, res) => {
         consumptionsToPayIds = consumptions.map(c => c.id);
         totalConsumptionsAmount = consumptions.reduce((sum, c) => sum + parseFloat(c.total_price), 0);
         
-        // Verificar que el monto del pago cubra los consumos seleccionados
-        if (amount < totalConsumptionsAmount) {
-          await connection.rollback();
-          connection.release();
-          return res.status(400).json({ 
-            error: `El monto del pago (${amount}) es insuficiente para cubrir los consumos seleccionados (${totalConsumptionsAmount})`
-          });
-        }
+        // Siempre usar el monto calculado de los consumos seleccionados
+        // Esto asegura que el monto sea exactamente igual al total de los consumos
+        amount = totalConsumptionsAmount;
+        
+        // Log para depuración
+        console.log(`Monto del pago ajustado al total de consumos seleccionados: ${amount}`);
       } else {
         // Si no se especifican consumos, obtener todos los consumos pendientes
         const [pendingConsumptions] = await connection.query(
@@ -479,16 +479,26 @@ export const approveConsumptionPayment = async (req, res) => {
 // Rechazar un pago de consumiciones
 export const rejectConsumptionPayment = async (req, res) => {
   try {
+    console.log('🔍 [DEBUG] rejectConsumptionPayment called');
+    console.log('🔍 [DEBUG] Request params:', req.params);
+    console.log('🔍 [DEBUG] Request body:', req.body);
+    console.log('🔍 [DEBUG] User role:', req.user?.role);
+    
     // Solo administradores pueden rechazar pagos
     if (req.user.role !== 'admin') {
+      console.log('❌ [DEBUG] User is not admin');
       return res.status(403).json({ error: 'No tienes permisos para rechazar pagos' });
     }
     
     const { id } = req.params;
-    const { rejectionReason } = req.body;
+    const { rejection_reason } = req.body;
+    
+    console.log('🔍 [DEBUG] Payment ID:', id);
+    console.log('🔍 [DEBUG] Rejection reason:', rejection_reason);
     
     // Validar que hay una razón de rechazo
-    if (!rejectionReason) {
+    if (!rejection_reason) {
+      console.log('❌ [DEBUG] No rejection reason provided');
       return res.status(400).json({ error: 'Debe proporcionar una razón para rechazar el pago' });
     }
     
@@ -535,7 +545,7 @@ export const rejectConsumptionPayment = async (req, res) => {
         `UPDATE consumption_payments 
          SET status = 'rechazado', approved_by = ?, approved_at = CURRENT_TIMESTAMP, rejection_reason = ? 
          WHERE id = ?`,
-        [req.user.id, rejectionReason, id]
+        [req.user.id, rejection_reason, id]
       );
       
       // Confirmar la transacción
@@ -577,6 +587,8 @@ export const getPaymentDetails = async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log(`🔍 [DEBUG] getPaymentDetails llamado para pago ID: ${id}`);
+    
     const connection = await pool.getConnection();
     
     // Obtener el pago y detalles
@@ -594,22 +606,44 @@ export const getPaymentDetails = async (req, res) => {
       [id]
     );
     
-    connection.release();
-    
     if (payments.length === 0) {
+      connection.release();
+      console.log(`❌ [DEBUG] Pago ${id} no encontrado`);
       return res.status(404).json({ error: 'Pago no encontrado' });
     }
     
     const payment = payments[0];
+    console.log(`✅ [DEBUG] Pago ${id} encontrado para usuario: ${payment.user_name}`);
     
     // Solo el usuario involucrado o un admin puede ver los detalles
     if (payment.user_id !== req.user.id && req.user.role !== 'admin') {
+      connection.release();
+      console.log(`❌ [DEBUG] Sin permisos para ver pago ${id}`);
       return res.status(403).json({ error: 'No tienes permiso para ver este pago' });
     }
     
-    res.status(200).json(payment);
+    // Obtener los consumos asociados a este pago
+    const [consumptions] = await connection.query(
+      `SELECT c.*, p.name as product_name, cpd.created_at as payment_detail_date
+       FROM consumption_payments_details cpd
+       JOIN consumptions c ON cpd.consumption_id = c.id
+       JOIN products p ON c.product_id = p.id
+       WHERE cpd.payment_id = ?
+       ORDER BY c.created_at DESC`,
+      [id]
+    );
+    
+    console.log(`✅ [DEBUG] Encontrados ${consumptions.length} consumos para pago ${id}`);
+    
+    connection.release();
+    
+    // Devolver la estructura que espera el frontend
+    res.status(200).json({
+      payment: payment,
+      consumptions: consumptions
+    });
       } catch (error) {
-    console.error('Error al obtener detalles del pago:', error);
+    console.error('❌ [DEBUG] Error al obtener detalles del pago:', error);
     res.status(500).json({ error: 'Error al obtener detalles del pago' });
   }
 };
@@ -745,8 +779,8 @@ export const approvePayment = async (req, res) => {
       
       // Verificar que el pago existe y está pendiente
       const [payments] = await connection.query(
-        'SELECT * FROM consumption_payments WHERE id = ? AND status = 0 FOR UPDATE',
-        [paymentId]
+        'SELECT * FROM consumption_payments WHERE id = ? AND status = ? FOR UPDATE',
+        [paymentId, 'pendiente']
       );
       
       if (payments.length === 0) {
@@ -755,10 +789,10 @@ export const approvePayment = async (req, res) => {
         return res.status(404).json({ error: 'Pago no encontrado o ya procesado' });
       }
       
-      // Actualizar el estado del pago a aprobado (status = 1)
+      // Actualizar el estado del pago a aprobado
       await connection.query(
-        'UPDATE consumption_payments SET status = 1, approved_by = ?, approved_at = NOW() WHERE id = ?',
-        [req.user.id, paymentId]
+        'UPDATE consumption_payments SET status = ?, approved_by = ?, approved_at = NOW() WHERE id = ?',
+        ['aprobado', req.user.id, paymentId]
       );
       
       // Obtener los consumos asociados a este pago
@@ -844,5 +878,62 @@ export const approvePayment = async (req, res) => {
   } catch (error) {
     console.error('Error al aprobar el pago:', error);
     return res.status(500).json({ error: 'Error del servidor al aprobar el pago' });
+  }
+};
+
+// Obtener todos los pagos pendientes de aprobación (solo admin)
+export const getPendingPayments = async (req, res) => {
+  console.log('🔍 [DEBUG] getPendingPayments función ejecutada');
+  
+  // Solo administradores pueden ver todos los pagos pendientes
+  if (req.user.role !== 'admin') {
+    console.log('❌ [DEBUG] Usuario no es admin:', req.user.role);
+    return res.status(403).json({ error: 'No tienes permisos para ver todos los pagos pendientes' });
+  }
+  
+  console.log('✅ [DEBUG] Usuario es admin, procediendo...');
+  
+  try {
+    const connection = await pool.getConnection();
+    console.log('✅ [DEBUG] Conexión a base de datos obtenida');
+    
+    console.log('🔍 [DEBUG] Ejecutando consulta de pagos pendientes...');
+    
+    // Obtener pagos pendientes (status = 'pendiente')
+    const [payments] = await connection.query(
+      `SELECT cp.*, 
+       u.name as user_name,
+       u_created.name as created_by_name,
+       (SELECT COUNT(*) FROM consumption_payments_details WHERE payment_id = cp.id) as consumptions_count
+       FROM consumption_payments cp
+       JOIN users u ON cp.user_id = u.id
+       JOIN users u_created ON cp.created_by = u_created.id
+       WHERE cp.status = 'pendiente'
+       ORDER BY cp.payment_date DESC`
+    );
+    
+    console.log(`✅ [DEBUG] Consulta ejecutada. Encontrados ${payments.length} pagos pendientes`);
+    
+    if (payments.length > 0) {
+      console.log('🔍 [DEBUG] Primer pago encontrado:', {
+        id: payments[0].id,
+        user_name: payments[0].user_name,
+        amount: payments[0].amount,
+        status: payments[0].status,
+        payment_date: payments[0].payment_date
+      });
+    }
+    
+    // Devolver directamente los pagos por ahora, sin procesar detalles
+    console.log(`📤 [DEBUG] Enviando respuesta con ${payments.length} pagos pendientes`);
+    
+    connection.release();
+    
+    return res.status(200).json(payments);
+    
+  } catch (error) {
+    console.error('❌ [DEBUG] Error en getPendingPayments:', error);
+    console.error('📍 [DEBUG] Stack trace:', error.stack);
+    return res.status(500).json({ error: 'Error del servidor al obtener pagos pendientes' });
   }
 };

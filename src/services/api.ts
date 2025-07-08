@@ -2,7 +2,7 @@
  * Servicios para interactuar con la API
  */
 
-import { User, Product, Reservation, Table } from '../types';
+import { User, Product, Reservation, Table, Notification } from '../types';
 export { configService } from './configService';
 export { paymentsService } from './paymentsService';
 export { uploadService } from './uploadService';
@@ -396,6 +396,20 @@ export const consumptionService = {
   }
 };
 
+// Servicio de pagos de consumos
+export const consumptionPaymentService = {
+  getUserDebt: async (userId?: number) => {
+    const endpoint = userId ? `/consumption-payments/debt/${userId}` : '/consumption-payments/debt';
+    const response = await fetchWithAuth(endpoint);
+    
+    if (!response.ok) {
+      throw new Error('Error al obtener la deuda del usuario');
+    }
+    
+    return response.json();
+  }
+};
+
 /**
  * Servicios para administración de usuarios
  */
@@ -752,7 +766,28 @@ export const adminReservationService = {
       console.error(`Error aprobando reserva ${id}:`, error);
       throw error;
     }
-  },deleteReservation: async (id: number): Promise<{ message: string }> => {
+  },
+
+  rejectReservation: async (id: number, rejection_reason: string): Promise<Reservation> => {
+    try {
+      const response = await fetchWithAuth(`/reservations/${id}/reject`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rejection_reason }),
+      });
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error denegando reserva ${id}:`, error);
+      throw error;
+    }
+  },
+  
+  deleteReservation: async (id: number): Promise<{ message: string }> => {
     try {
       const response = await fetchWithAuth(`/reservations/${id}`, {
         method: 'DELETE',
@@ -808,6 +843,92 @@ export const adminReservationService = {
       };
     } catch (error) {
       console.error(`Error eliminando múltiples reservas:`, error);
+      throw error;
+    }
+  },
+};
+
+/**
+ * Servicios para notificaciones
+ */
+export const notificationService = {
+  // Obtener notificaciones del usuario actual
+  getNotifications: async (unreadOnly = false, limit = 50): Promise<Notification[]> => {
+    try {
+      const params = new URLSearchParams({
+        unread_only: unreadOnly.toString(),
+        limit: limit.toString()
+      });
+      
+      const response = await fetchWithAuth(`/notifications?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error obteniendo notificaciones:', error);
+      throw error;
+    }
+  },
+
+  // Obtener conteo de notificaciones no leídas
+  getUnreadCount: async (): Promise<{ unread_count: number }> => {
+    try {
+      const response = await fetchWithAuth('/notifications/unread-count');
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error obteniendo conteo de notificaciones no leídas:', error);
+      throw error;
+    }
+  },
+
+  // Marcar notificación específica como leída
+  markAsRead: async (notificationId: number): Promise<{ message: string }> => {
+    try {
+      const response = await fetchWithAuth(`/notifications/${notificationId}/read`, {
+        method: 'PUT',
+      });
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error marcando notificación ${notificationId} como leída:`, error);
+      throw error;
+    }
+  },
+
+  // Marcar todas las notificaciones como leídas
+  markAllAsRead: async (): Promise<{ message: string }> => {
+    try {
+      const response = await fetchWithAuth('/notifications/mark-all-read', {
+        method: 'PUT',
+      });
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error marcando todas las notificaciones como leídas:', error);
+      throw error;
+    }
+  },
+
+  // Eliminar notificación específica
+  deleteNotification: async (notificationId: number): Promise<{ message: string }> => {
+    try {
+      const response = await fetchWithAuth(`/notifications/${notificationId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error eliminando notificación ${notificationId}:`, error);
       throw error;
     }
   },

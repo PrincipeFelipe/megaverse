@@ -1,5 +1,6 @@
 import { pool } from '../config/database.js';
 import { isValidISODate, logDateDetails } from '../utils/dateUtils.js';
+import { createNotification } from './notifications.js';
 
 export const getAllReservations = async (req, res) => {
   try {
@@ -24,6 +25,16 @@ export const getAllReservations = async (req, res) => {
     query += ' ORDER BY r.start_time DESC';
     
     const [reservations] = await connection.query(query, params);
+    
+    // Debug: Verificar si el campo reason está presente
+    console.log('Debug - Reservations sample:', reservations.slice(0, 1).map(r => ({
+      id: r.id,
+      reason: r.reason,
+      all_day: r.all_day,
+      approved: r.approved,
+      hasReason: r.reason !== null && r.reason !== undefined
+    })));
+    
     connection.release();
     
     return res.status(200).json(reservations);
@@ -538,5 +549,90 @@ export const approveReservation = async (req, res) => {
   } catch (error) {
     console.error('Error al aprobar reserva:', error);
     return res.status(500).json({ error: 'Error del servidor al aprobar la reserva' });
+  }
+};
+
+// Controlador para denegar reservas de todo el día
+export const rejectReservation = async (req, res) => {
+  const { id } = req.params;
+  const { rejection_reason } = req.body;
+  
+  console.log(`🔴 rejectReservation llamado - ID: ${id}, rejection_reason: ${rejection_reason}`);
+  console.log('🔴 req.body completo:', req.body);
+  console.log('🔴 req.user:', req.user);
+  
+  try {
+    // Solo los administradores pueden denegar reservas
+    if (req.user.role !== 'admin') {
+      console.log('🔴 Error: Usuario no es admin');
+      return res.status(403).json({ error: 'Solo los administradores pueden denegar reservas' });
+    }
+
+    // Validar que se proporcione un motivo
+    if (!rejection_reason || rejection_reason.trim() === '') {
+      console.log('🔴 Error: No se proporcionó motivo');
+      return res.status(400).json({ error: 'El motivo de denegación es obligatorio' });
+    }
+
+    const connection = await pool.getConnection();
+    
+    // Verificar que la reserva existe
+    const [reservations] = await connection.query(
+      `SELECT r.*, u.name as user_name, t.name as table_name 
+       FROM reservations r
+       JOIN users u ON r.user_id = u.id
+       JOIN tables t ON r.table_id = t.id
+       WHERE r.id = ?`, 
+      [id]
+    );
+    
+    if (reservations.length === 0) {
+      connection.release();
+      return res.status(404).json({ error: 'Reserva no encontrada' });
+    }
+    
+    const reservation = reservations[0];
+    
+    // Verificar que la reserva es de todo el día
+    if (!reservation.all_day) {
+      connection.release();
+      return res.status(400).json({ error: 'Solo se pueden denegar reservas de todo el día' });
+    }
+    
+    // Actualizar el estado cancelado y agregar motivo de denegación
+    await connection.query(
+      'UPDATE reservations SET status = "cancelled", rejection_reason = ? WHERE id = ?',
+      [rejection_reason.trim(), id]
+    );
+    
+    // Crear notificación para el usuario
+    await createNotification(
+      reservation.user_id,
+      'Reserva Denegada',
+      `Su reserva de todo el día para la mesa "${reservation.table_name}" ha sido denegada. Motivo: ${rejection_reason.trim()}`,
+      'warning',
+      'reservation',
+      reservation.id
+    );
+    
+    // Obtener la reserva actualizada
+    const [updatedReservation] = await connection.query(
+      `SELECT r.*, u.name as user_name, t.name as table_name 
+       FROM reservations r
+       JOIN users u ON r.user_id = u.id
+       JOIN tables t ON r.table_id = t.id
+       WHERE r.id = ?`, 
+      [id]
+    );
+    
+    connection.release();
+    
+    return res.status(200).json({
+      message: 'Reserva denegada correctamente',
+      reservation: updatedReservation[0]
+    });
+  } catch (error) {
+    console.error('Error al denegar reserva:', error);
+    return res.status(500).json({ error: 'Error del servidor al denegar la reserva' });
   }
 };

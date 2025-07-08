@@ -1,6 +1,7 @@
 import React, { createContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { consumptionPaymentsService } from '../services/consumptionPaymentsService';
+import { notificationService } from '../services/api';
 
 export type NotificationType = 'info' | 'warning' | 'error';
 
@@ -86,6 +87,40 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       return [newNotification, ...prevNotifications]; // Añadimos la nueva notificación al principio
     });
   }, []); // No dependemos de notifications, usamos el estado previo dentro del setNotifications
+
+  // Función para cargar notificaciones del servidor
+  const loadServerNotifications = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const serverNotifications = await notificationService.getNotifications(false, 50);
+      
+      // Convertir las notificaciones del servidor al formato local
+      const formattedNotifications: Notification[] = serverNotifications.map(serverNotif => ({
+        id: serverNotif.id.toString(),
+        type: serverNotif.type as NotificationType,
+        title: serverNotif.title,
+        message: serverNotif.message,
+        read: serverNotif.read_status || serverNotif.read || false,
+        url: serverNotif.url,
+        createdAt: new Date(serverNotif.created_at),
+        dismissible: true,
+        uniqueId: `server-${serverNotif.id}`,
+        data: serverNotif.data ? JSON.parse(serverNotif.data) : undefined
+      }));
+
+      // Combinar con notificaciones locales (evitando duplicados)
+      setNotifications(prevNotifications => {
+        const localNotifications = prevNotifications.filter(notif => !notif.uniqueId?.startsWith('server-'));
+        const combinedNotifications = [...formattedNotifications, ...localNotifications];
+        
+        // Ordenar por fecha de creación (más recientes primero)
+        return combinedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      });
+    } catch (error) {
+      console.error('Error cargando notificaciones del servidor:', error);
+    }
+  }, [user]);
   // Definir checkForRejectedPayments con dependencias minimizadas
   const checkForRejectedPayments = useCallback(async () => {
     if (!user) return;
@@ -156,28 +191,60 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   // Un efecto separado para comprobar pagos rechazados cuando el usuario está autenticado
   useEffect(() => {
     if (user) {
-      // Solo comprobar pagos rechazados si hay un usuario autenticado
+      // Cargar notificaciones del servidor primero
+      loadServerNotifications();
+      // Luego comprobar pagos rechazados (solo para notificaciones locales)
       checkForRejectedPayments();
     }
-  }, [user, checkForRejectedPayments]);
+  }, [user, checkForRejectedPayments, loadServerNotifications]);
 
   const markAsRead = (id: string) => {
     setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
+      prev.map((notification) => {
+        if (notification.id === id) {
+          // Si es una notificación del servidor, marcarla como leída en el backend también
+          if (notification.uniqueId?.startsWith('server-')) {
+            const serverId = parseInt(notification.uniqueId.replace('server-', ''));
+            notificationService.markAsRead(serverId).catch(error => {
+              console.error('Error marcando notificación como leída en el servidor:', error);
+            });
+          }
+          return { ...notification, read: true };
+        }
+        return notification;
+      })
     );
   };
 
   const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notification) => ({ ...notification, read: true }))
-    );
+    setNotifications((prev) => {
+      // Marcar todas las notificaciones del servidor como leídas
+      const serverNotifications = prev.filter(n => n.uniqueId?.startsWith('server-'));
+      if (serverNotifications.length > 0) {
+        notificationService.markAllAsRead().catch(error => {
+          console.error('Error marcando todas las notificaciones como leídas en el servidor:', error);
+        });
+      }
+      
+      return prev.map((notification) => ({ ...notification, read: true }));
+    });
   };
 
   const removeNotification = (id: string) => {
     setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== id)
+      prev.filter((notification) => {
+        if (notification.id === id) {
+          // Si es una notificación del servidor, eliminarla también del backend
+          if (notification.uniqueId?.startsWith('server-')) {
+            const serverId = parseInt(notification.uniqueId.replace('server-', ''));
+            notificationService.deleteNotification(serverId).catch(error => {
+              console.error('Error eliminando notificación del servidor:', error);
+            });
+          }
+          return false;
+        }
+        return true;
+      })
     );
   };
 

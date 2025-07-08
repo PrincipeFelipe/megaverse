@@ -214,7 +214,7 @@ export const AdminPage: React.FC = () => {
               <Card className="p-4 hover:shadow-md transition-shadow">
                 <Link to="/admin/consumption-payments" className="block text-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 mx-auto mb-2 text-blue-500"><path d="M2 17h2v4h16v-4h2"></path><path d="M6 7v4a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V7"></path><circle cx="12" cy="5" r="1"></circle><path d="M8 5h1"></path><path d="M15 5h1"></path></svg>
-                  <span className="block text-gray-800 dark:text-white font-medium">Gestionar Pagos</span>
+                  <span className="block text-gray-800 dark:text-white font-medium">Consumos Pendientes</span>
                 </Link>
               </Card>
             </div>

@@ -132,6 +132,15 @@ export const Header: React.FC = () => {
                         <CreditCard className="w-4 h-4 mr-2" />
                         Historial de Pagos
                       </Link>
+                      
+                      <Link 
+                        to="/consumption-payments" 
+                        className="flex px-4 py-2 text-sm text-gray-300 hover:bg-dark-700 hover:text-primary-400"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Mis Consumos
+                      </Link>
                     </div>
                   )}
                 </div>

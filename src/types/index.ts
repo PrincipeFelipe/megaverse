@@ -60,6 +60,16 @@ export interface Consumption {
   created_at: string;
 }
 
+export interface UserDebtResponse {
+  balance: number;
+  currentDebt: {
+    unpaid: number;
+    pendingApproval: number;
+    total: number;
+  };
+  paymentHistory: any[];
+}
+
 export interface Table {
   id: number;
   name: string;
@@ -85,6 +95,23 @@ export interface Reservation {
   all_day: boolean;
   reason?: string;
   approved?: boolean;
+  rejection_reason?: string;
+}
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean; // Alias para read_status para compatibilidad
+  read_status?: boolean; // Para compatibilidad con el backend
+  url?: string; // URL opcional para navegación
+  data?: string; // Datos adicionales en formato JSON
+  related_entity_type?: string;
+  related_entity_id?: number;
+  created_at: string;
+  read_at?: string;
 }
 
 export interface AuthContextType {

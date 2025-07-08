@@ -7,7 +7,7 @@ import { Card } from '../../../components/ui/Card';
 import { AdminForm } from '../../../components/admin/AdminForm';
 import { Reservation, User, Table } from '../../../types';
 import { adminReservationService, adminUserService, tableService } from '../../../services/api';
-import { Pencil, Trash2, Plus as PlusIcon } from 'lucide-react';
+import { Pencil, Trash2, Plus as PlusIcon, Eye, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showDangerConfirm, showSuccess, showError, showLoading, closeLoading } from '../../../utils/alerts';
@@ -23,6 +23,11 @@ export const AdminReservationsPage: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [filterPendingApproval, setFilterPendingApproval] = useState(false);
   const [filterCancelled, setFilterCancelled] = useState(false);
+  
+  // Modal de detalles de reserva
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [detailsReservation, setDetailsReservation] = useState<Reservation | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
   
   // Nuevos filtros
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -108,7 +113,7 @@ export const AdminReservationsPage: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  const handleInputChange = (name: string, value: string | number) => {
+  const handleInputChange = (name: string, value: string | number | boolean | File | null) => {
     setFormValues((prev) => ({
       ...prev,
       [name]: value
@@ -126,11 +131,43 @@ export const AdminReservationsPage: React.FC = () => {
       // Crear fecha inicial manteniendo la zona horaria
       const startDate = new Date(year, month - 1, day, hours, minutes);
       
-      // Calcular fecha final sumando la duración
+      // Calcular fecha final 
       const endDate = new Date(startDate);
-      endDate.setHours(endDate.getHours() + parseInt(formValues.duration));
-      
       const durationHours = parseInt(formValues.duration);
+      
+      // Si es una reserva de 14 horas (todo el día), aplicar lógica especial
+      if (durationHours === 14) {
+        // Para reservas de todo el día, usar la configuración del sistema
+        // Obtener configuración de window o usar valores por defecto
+        const config = window.reservationConfig || {
+          allowed_start_time: "06:00",
+          allowed_end_time: "23:00"
+        };
+        
+        const [startHours, startMinutes] = config.allowed_start_time.split(':').map(Number);
+        const [endHours] = config.allowed_end_time.split(':').map(Number);
+        
+        // Establecer hora de inicio según configuración
+        startDate.setHours(startHours, startMinutes, 0, 0);
+        
+        // La hora de fin debe ser hasta el final de la última hora permitida
+        let finalEndHour = endHours + 1;
+        let nextDay = false;
+        
+        if (finalEndHour >= 24) {
+          finalEndHour = 0;
+          nextDay = true;
+        }
+        
+        if (nextDay) {
+          endDate.setDate(endDate.getDate() + 1);
+        }
+        
+        endDate.setHours(finalEndHour, 0, 0, 0);
+      } else {
+        // Para reservas normales, sumar la duración normalmente
+        endDate.setHours(endDate.getHours() + durationHours);
+      }
       
       console.log(`Fecha local inicio: ${startDate.toLocaleDateString()} ${startDate.getHours()}:${startDate.getMinutes()}`);
       console.log(`Fecha local fin: ${endDate.toLocaleDateString()} ${endDate.getHours()}:${endDate.getMinutes()}`);
@@ -149,7 +186,7 @@ export const AdminReservationsPage: React.FC = () => {
         duration_hours: durationHours,
         num_members: 1,
         num_guests: 0,
-        all_day: false
+        all_day: durationHours === 14 // Marcar como todo el día si son 14 horas
       };
       
       // Encontrar los nombres del usuario y la mesa para el mensaje de confirmación
@@ -205,6 +242,61 @@ export const AdminReservationsPage: React.FC = () => {
         showError('Error', 'Error al eliminar reserva: ' + (err as Error).message);
         setError('Error al eliminar reserva: ' + (err as Error).message);
       }
+    }
+  };
+
+  const handleApproveReservation = async (reservationId: number) => {
+    const isConfirmed = await showDangerConfirm(
+      'Aprobar reserva', 
+      '¿Estás seguro de que deseas aprobar esta reserva de todo el día?',
+      'Aprobar',
+      'Cancelar'
+    );
+    
+    if (isConfirmed) {
+      try {
+        showLoading('Aprobando reserva...');
+        await adminReservationService.approveReservation(reservationId);
+        closeLoading();
+        showSuccess('Reserva aprobada', 'La reserva de todo el día ha sido aprobada correctamente');
+        handleCloseDetailsModal(); // Cerrar modal de detalles si está abierto
+        fetchData(); // Reload list after approval
+      } catch (err) {
+        closeLoading();
+        showError('Error', 'Error al aprobar reserva: ' + (err as Error).message);
+        setError('Error al aprobar reserva: ' + (err as Error).message);
+      }
+    }
+  };
+
+  const handleOpenDetailsModal = (reservation: Reservation) => {
+    setDetailsReservation(reservation);
+    setIsDetailsModalOpen(true);
+    setRejectionReason('');
+  };
+
+  const handleCloseDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+    setDetailsReservation(null);
+    setRejectionReason('');
+  };
+
+  const handleRejectReservation = async () => {
+    if (!detailsReservation || !rejectionReason.trim()) {
+      showError('Error', 'Debe proporcionar un motivo para la denegación');
+      return;
+    }
+
+    try {
+      showLoading('Denegando reserva...');
+      await adminReservationService.rejectReservation(detailsReservation.id, rejectionReason.trim());
+      closeLoading();
+      showSuccess('Reserva denegada', 'La reserva ha sido denegada correctamente');
+      handleCloseDetailsModal();
+      fetchData(); // Reload list after rejection
+    } catch (err) {
+      closeLoading();
+      showError('Error', 'Error al denegar reserva: ' + (err as Error).message);
     }
   };
 
@@ -321,6 +413,11 @@ export const AdminReservationsPage: React.FC = () => {
       header: 'Tipo',
       accessor: (reservation: Reservation) => {
         if (reservation.all_day) {
+          // Si la reserva está cancelada, no mostrar badge de tipo
+          if (reservation.status === 'cancelled') {
+            return null;
+          }
+          
           const isApproved = reservation.approved;
           const bgColor = isApproved 
             ? 'bg-purple-100 dark:bg-purple-900/40' 
@@ -339,62 +436,7 @@ export const AdminReservationsPage: React.FC = () => {
       },
       className: 'w-1/6 text-center'
     }
-  ];  const handleApproveReservation = async (reservationId: number) => {
-    const isConfirmed = await showDangerConfirm(
-      'Aprobar reserva', 
-      '¿Estás seguro de que deseas aprobar esta reserva de todo el día?',
-      'Aprobar',
-      'Cancelar'
-    );
-    
-    if (isConfirmed) {
-      try {
-        showLoading('Aprobando reserva...');
-        await adminReservationService.approveReservation(reservationId);
-        closeLoading();
-        showSuccess('Reserva aprobada', 'La reserva de todo el día ha sido aprobada correctamente');
-        fetchData(); // Reload list after approval
-      } catch (err) {
-        closeLoading();
-        showError('Error', 'Error al aprobar reserva: ' + (err as Error).message);
-        setError('Error al aprobar reserva: ' + (err as Error).message);
-      }
-    }
-  };
-
-  const renderActions = (reservation: Reservation) => (
-    <div className="flex justify-end items-center gap-1">
-      {reservation.all_day && !reservation.approved && (
-        <Button 
-          variant="ghost" 
-          size="xs"
-          onClick={() => handleApproveReservation(reservation.id)}
-          className="p-1"
-          title="Aprobar reserva de todo el día"
-        >
-          <span className="text-green-500 text-xs">Aprobar</span>
-        </Button>
-      )}
-      <Button 
-        variant="ghost" 
-        size="xs"
-        onClick={() => handleOpenModal(reservation)}
-        className="p-1"
-        title="Editar reserva"
-      >
-        <Pencil className="w-4 h-4" />
-      </Button>
-      <Button 
-        variant="ghost" 
-        size="xs"
-        onClick={() => handleDeleteReservation(reservation.id)}
-        className="p-1"
-        title="Eliminar reserva"
-      >
-        <Trash2 className="w-4 h-4 text-red-500" />
-      </Button>
-    </div>
-  );  // Filtrar las reservas según los criterios seleccionados
+  ];  // Filtrar las reservas según los criterios seleccionados
   let filteredReservations = [...reservations];
   
   // Si el filtro de pendientes está activo, solo mostrar reservas pendientes de aprobación
@@ -432,6 +474,40 @@ export const AdminReservationsPage: React.FC = () => {
   
   const pendingCount = reservations.filter(r => r.all_day && r.status === 'active' && !r.approved).length;
   const cancelledCount = reservations.filter(r => r.status === 'cancelled').length;
+
+  const renderActions = (reservation: Reservation) => (
+    <div className="flex justify-end items-center gap-1">
+      {reservation.all_day && !reservation.approved && reservation.status === 'active' && (
+        <Button 
+          variant="ghost" 
+          size="xs"
+          onClick={() => handleOpenDetailsModal(reservation)}
+          className="p-1"
+          title="Ver detalles y gestionar reserva"
+        >
+          <Eye className="w-4 h-4 text-blue-500" />
+        </Button>
+      )}
+      <Button 
+        variant="ghost" 
+        size="xs"
+        onClick={() => handleOpenModal(reservation)}
+        className="p-1"
+        title="Editar reserva"
+      >
+        <Pencil className="w-4 h-4" />
+      </Button>
+      <Button 
+        variant="ghost" 
+        size="xs"
+        onClick={() => handleDeleteReservation(reservation.id)}
+        className="p-1"
+        title="Eliminar reserva"
+      >
+        <Trash2 className="w-4 h-4 text-red-500" />
+      </Button>
+    </div>
+  );
 
   return (
     <AdminLayout title="Administrar Reservas">
@@ -649,6 +725,120 @@ export const AdminReservationsPage: React.FC = () => {
           error={formError}
         />
       </Modal>
+
+      {/* Modal de detalles y rechazo de reservas */}
+      <Modal
+        isOpen={isDetailsModalOpen}
+        onClose={handleCloseDetailsModal}
+        title="Detalles de Reserva"
+      >
+        {detailsReservation && (
+          <div>
+            <div className="mb-4">
+              <strong>ID de Reserva:</strong> {detailsReservation.id}
+            </div>
+            <div className="mb-4">
+              <strong>Usuario:</strong> {detailsReservation.user_name}
+            </div>
+            <div className="mb-4">
+              <strong>Mesa:</strong> {detailsReservation.table_name}
+            </div>
+            <div className="mb-4">
+              <strong>Fecha y Hora:</strong> {format(extractLocalTime(detailsReservation.start_time), "EEE, d MMM yyyy HH:mm", { locale: es })}
+            </div>
+            <div className="mb-4">
+              <strong>Duración:</strong> {detailsReservation.duration_hours} horas
+            </div>
+            <div className="mb-4">
+              <strong>Estado:</strong> 
+              <span className={`inline-flex justify-center items-center px-2.5 py-1 rounded-md text-xs font-medium 
+                ${detailsReservation.status === 'active' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200' : ''}
+                ${detailsReservation.status === 'cancelled' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200' : ''}
+                ${detailsReservation.status === 'completed' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200' : ''}
+              `}>
+                {detailsReservation.status === 'active' && 'Activa'}
+                {detailsReservation.status === 'cancelled' && 'Cancelada'}
+                {detailsReservation.status === 'completed' && 'Completada'}
+              </span>
+            </div>
+            
+            {detailsReservation.all_day && (
+              <div className="mb-4">
+                <strong>Tipo:</strong> 
+                <span className={`inline-flex justify-center items-center px-2.5 py-1 rounded-md text-xs font-medium 
+                  ${detailsReservation.approved ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200'}
+                `}>
+                  {detailsReservation.approved ? 'Todo el día' : 'Pendiente'}
+                </span>
+              </div>
+            )}
+
+            {detailsReservation.reason && (
+              <div className="mb-4">
+                <strong>Motivo de la reserva:</strong>
+                <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-700 rounded border">
+                  {detailsReservation.reason}
+                </div>
+              </div>
+            )}
+
+            {detailsReservation.rejection_reason && (
+              <div className="mb-4">
+                <strong>Motivo de denegación:</strong>
+                <div className="mt-1 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                  {detailsReservation.rejection_reason}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Motivo de denegación */}
+        {detailsReservation && !detailsReservation.approved && detailsReservation.status === 'active' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Motivo de denegación
+            </label>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800"
+              rows={3}
+              placeholder="Ingrese el motivo de la denegación"
+            />
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          {detailsReservation && !detailsReservation.approved && detailsReservation.status === 'active' && (
+            <>
+              <Button 
+                onClick={() => handleApproveReservation(detailsReservation.id)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Check className="w-4 h-4 mr-1" />
+                Aprobar Reserva
+              </Button>
+              <Button 
+                onClick={handleRejectReservation}
+                disabled={!rejectionReason.trim()}
+                className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Denegar Reserva
+              </Button>
+            </>
+          )}
+          <Button 
+            onClick={handleCloseDetailsModal}
+            variant="outline"
+          >
+            Cerrar
+          </Button>
+        </div>
+      </Modal>
     </AdminLayout>
   );
 };
+
+

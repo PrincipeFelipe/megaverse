@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 import { User, Calendar, ShoppingCart, CreditCard, MapPin, Trash2 } from '../utils/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/Card';
-import { Reservation, Consumption } from '../types';
+import { Reservation, Consumption, UserDebtResponse } from '../types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { reservationService, consumptionService } from '../services/api';
+import { reservationService, consumptionService, consumptionPaymentService } from '../services/api';
 import { cleaningDutyService, CleaningAssignment } from '../services/cleaningDutyService';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
@@ -18,7 +18,37 @@ export const DashboardPage: React.FC = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [consumptions, setConsumptions] = useState<Consumption[]>([]);
   const [cleaningDuty, setCleaningDuty] = useState<CleaningAssignment | null>(null);
+  const [userDebt, setUserDebt] = useState<UserDebtResponse['currentDebt'] | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Función para formatear la fecha de membresía de manera segura
+  const formatMembershipDate = (): string => {
+    // Priorizar membership_date si existe
+    if (user?.membership_date) {
+      try {
+        const date = new Date(user.membership_date);
+        if (!isNaN(date.getTime())) {
+          return format(date, 'MMMM yyyy', { locale: es });
+        }
+      } catch (error) {
+        console.warn('Error al formatear membership_date:', error);
+      }
+    }
+    
+    // Si no hay membership_date válida, usar createdAt
+    if (user?.createdAt) {
+      try {
+        const date = new Date(user.createdAt);
+        if (!isNaN(date.getTime())) {
+          return format(date, 'MMMM yyyy', { locale: es });
+        }
+      } catch (error) {
+        console.warn('Error al formatear createdAt:', error);
+      }
+    }
+    
+    return 'N/A';
+  };
 
   useEffect(() => {
     // Fetch real data from API
@@ -44,6 +74,15 @@ export const DashboardPage: React.FC = () => {
             : [];
           
           setConsumptions(sortedConsumptions);
+          
+          // Obtener deuda del usuario
+          try {
+            const debtData = await consumptionPaymentService.getUserDebt();
+            setUserDebt(debtData.currentDebt);
+          } catch (error) {
+            console.error('Error al obtener deuda del usuario:', error);
+            setUserDebt({ unpaid: 0, pendingApproval: 0, total: 0 }); // Valor por defecto
+          }
           
           // Obtener turno de limpieza del usuario actual
           try {
@@ -136,9 +175,9 @@ export const DashboardPage: React.FC = () => {
     },
     {
       icon: <CreditCard className="w-6 h-6" />,
-      label: 'Saldo Actual',
-      value: `€${user?.balance !== undefined ? Number(user.balance).toFixed(2) : '0.00'}`,
-      color: 'text-green-500'
+      label: 'Consumos Pendientes',
+      value: `€${userDebt?.total !== undefined ? Number(userDebt.total).toFixed(2) : '0.00'}`,
+      color: userDebt?.total && userDebt.total > 0 ? 'text-red-500' : 'text-green-500'
     }
   ];
 
@@ -413,8 +452,26 @@ export const DashboardPage: React.FC = () => {
                 Miembro desde
               </label>
               <p className="text-gray-900 dark:text-white">
-                {user?.createdAt ? format(new Date(user.createdAt), 'MMMM yyyy', { locale: es }) : 'N/A'}
+                {formatMembershipDate()}
               </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Estado de Consumos
+              </label>
+              <div className="space-y-1">
+                <p className="text-gray-900 dark:text-white">
+                  Sin pagar: <span className={`font-medium ${userDebt?.unpaid && userDebt.unpaid > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    €{userDebt?.unpaid !== undefined ? Number(userDebt.unpaid).toFixed(2) : '0.00'}
+                  </span>
+                </p>
+                <p className="text-gray-900 dark:text-white">
+                  En revisión: <span className={`font-medium ${userDebt?.pendingApproval && userDebt.pendingApproval > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                    €{userDebt?.pendingApproval !== undefined ? Number(userDebt.pendingApproval).toFixed(2) : '0.00'}
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
         </Card>

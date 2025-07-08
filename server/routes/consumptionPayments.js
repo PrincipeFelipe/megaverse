@@ -1,7 +1,7 @@
 import express from 'express';
 import * as consumptionPaymentsController from '../controllers/consumptionPayments.js';
 import { authenticateToken, isAdmin } from '../middleware/auth.js';
-import { check } from 'express-validator';
+import { check, validationResult } from 'express-validator';
 
 const router = express.Router();
 
@@ -29,16 +29,34 @@ router.put('/:paymentId/approve', isAdmin, consumptionPaymentsController.approve
 // Obtener historial de pagos
 router.get('/', consumptionPaymentsController.getConsumptionPayments);
 
+// Obtener pagos pendientes de aprobación (solo admin)
+router.get('/pending', isAdmin, consumptionPaymentsController.getPendingPayments);
+
 // Obtener detalles de un pago específico
 router.get('/:id', consumptionPaymentsController.getPaymentDetails);
+
+// Obtener detalles de un pago específico (ruta alternativa más explícita)
+router.get('/:id/details', consumptionPaymentsController.getPaymentDetails);
 
 // Aprobar un pago de consumiciones (solo admin)
 router.put('/:id/approve', isAdmin, consumptionPaymentsController.approveConsumptionPayment);
 
 // Rechazar un pago de consumiciones (solo admin)
 router.put('/:id/reject', isAdmin, [
-  check('rejectionReason').isString().notEmpty().withMessage('La razón de rechazo es obligatoria')
-], consumptionPaymentsController.rejectConsumptionPayment);
+  check('rejection_reason').isString().notEmpty().withMessage('La razón de rechazo es obligatoria')
+], (req, res, next) => {
+  // Debug middleware para interceptar errores de validación
+  console.log('🔍 [DEBUG] Reject route - Request body:', req.body);
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log('❌ [DEBUG] Validation errors:', errors.array());
+    return res.status(400).json({ 
+      error: 'Debe proporcionar una razón para rechazar el pago',
+      details: errors.array() 
+    });
+  }
+  next();
+}, consumptionPaymentsController.rejectConsumptionPayment);
 
 // Reintentar un pago rechazado
 router.put('/:id/retry', [

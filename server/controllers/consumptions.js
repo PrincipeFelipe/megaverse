@@ -237,3 +237,98 @@ export const getPendingConsumptions = async (req, res) => {
     return res.status(500).json({ error: 'Error del servidor al obtener consumos pendientes' });
   }
 };
+
+export const getUnpaidConsumptions = async (req, res) => {
+  const { userId } = req.params;
+  
+  console.log('🔍 [DEBUG] getUnpaidConsumptions called for userId:', userId);
+  
+  // Verificar permisos
+  if (req.user.id != userId && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'No tienes permiso para ver estos consumos' });
+  }
+  
+  try {
+    const connection = await pool.getConnection();
+    
+    // Obtener solo consumos completamente sin pagar (paid = 0)
+    // Los consumos con paid = 1 ya están en proceso de pago (pendientes de aprobación)
+    const [consumptions] = await connection.query(
+      `SELECT c.*, p.name as product_name, p.price as product_price,
+       'pendiente' as payment_status,
+       COALESCE(c.price_per_unit, c.total_price / c.quantity, p.price) as price_per_unit
+       FROM consumptions c
+       JOIN products p ON c.product_id = p.id
+       WHERE c.user_id = ? AND c.paid = 0
+       ORDER BY c.created_at DESC`,
+      [userId]
+    );
+    
+    console.log(`🔍 [DEBUG] Found ${consumptions.length} unpaid consumptions (paid = 0) for user ${userId}`);
+    console.log('🔍 [DEBUG] Consumptions:', consumptions.map(c => ({ id: c.id, paid: c.paid, product_name: c.product_name })));
+    
+    // Calcular el total pendiente (estado 0 - no pagado)
+    const [unpaidTotal] = await connection.query(
+      `SELECT SUM(total_price) as total_unpaid
+       FROM consumptions
+       WHERE user_id = ? AND paid = 0`,
+      [userId]
+    );
+    
+    // Calcular el total en proceso (estado 1 - en proceso de pago)
+    const [processingTotal] = await connection.query(
+      `SELECT SUM(total_price) as total_processing
+       FROM consumptions
+       WHERE user_id = ? AND paid = 1`,
+      [userId]
+    );
+    
+    console.log('🔍 [DEBUG] Totals - Unpaid:', unpaidTotal[0].total_unpaid, 'Processing:', processingTotal[0].total_processing);
+    
+    connection.release();
+    
+    return res.status(200).json({
+      consumptions,
+      totals: {
+        unpaid: unpaidTotal[0].total_unpaid || 0,
+        processing: processingTotal[0].total_processing || 0,
+        total: (parseFloat(unpaidTotal[0].total_unpaid || 0) + parseFloat(processingTotal[0].total_processing || 0))
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener consumos no pagados del usuario:', error);
+    return res.status(500).json({ error: 'Error del servidor al obtener consumos no pagados' });
+  }
+};
+
+export const getAllUnpaidConsumptions = async (req, res) => {
+  // Solo admins pueden acceder a esta función (verificado por middleware)
+  try {
+    const connection = await pool.getConnection();
+    
+    // Obtener consumos no pagados (tanto pendientes como en proceso) de todos los usuarios
+    const [consumptions] = await connection.query(
+      `SELECT c.*, p.name as product_name, p.price as product_price,
+       u.name as user_name, u.username as user_username,
+       CASE 
+         WHEN c.paid = 0 THEN 'pendiente'
+         WHEN c.paid = 1 THEN 'procesando'
+         WHEN c.paid = 2 THEN 'pagado'
+         ELSE 'desconocido'
+       END as payment_status,
+       COALESCE(c.price_per_unit, c.total_price / c.quantity, p.price) as price_per_unit
+       FROM consumptions c
+       JOIN products p ON c.product_id = p.id
+       JOIN users u ON c.user_id = u.id
+       WHERE c.paid < 2
+       ORDER BY c.created_at DESC`
+    );
+    
+    connection.release();
+    
+    return res.status(200).json(consumptions);
+  } catch (error) {
+    console.error('Error al obtener todos los consumos no pagados:', error);
+    return res.status(500).json({ error: 'Error del servidor al obtener los consumos no pagados' });
+  }
+};

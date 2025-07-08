@@ -181,7 +181,7 @@ const ReservationsList: React.FC<ReservationsListProps> = ({
                           <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
                             <Clock size={16} className="mr-1" />
                             <span>{reservation.all_day ? 
-                              'Todo el día (08:00 - 22:00 h)' : 
+                              `Todo el día (${window.reservationConfig?.allowed_start_time?.substring(0,5) || '08:00'} - ${window.reservationConfig?.allowed_end_time?.substring(0,5) || '22:00'} h)` : 
                               `${formatTime(reservation.start_time)} - ${formatTime(reservation.end_time)} h`}
                             </span>
                           </div>

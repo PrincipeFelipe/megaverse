@@ -42,7 +42,7 @@ import { ExpensesPage } from './pages/admin/ExpensesPage';
 import ExpenseReportPage from './pages/admin/expenses/ExpenseReport';
 
 // Pagos de Consumiciones
-import { ConsumptionPaymentsPage } from './pages/admin/ConsumptionPaymentsPage';
+import ConsumptionsPaymentsPage from './pages/ConsumptionsPaymentsPage';
 
 // Documentación
 import DocumentsPage from './pages/admin/DocumentsPage';
@@ -229,10 +229,18 @@ const AppContent: React.FC = () => {
 
             {/* Rutas para Pagos de Consumiciones */}
             <Route 
+              path="/consumption-payments" 
+              element={
+                <ProtectedRoute>
+                  <ConsumptionsPaymentsPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/admin/consumption-payments" 
               element={
                 <AdminProtectedRoute>
-                  <ConsumptionPaymentsPage />
+                  <ConsumptionsPaymentsPage />
                 </AdminProtectedRoute>
               } 
             />

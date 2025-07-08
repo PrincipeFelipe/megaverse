@@ -16,6 +16,7 @@ import uploadsRoutes from './routes/uploads.js';
 import documentsRoutes from './routes/documents.js';
 import blogRoutes from './routes/blog.js';
 import cleaningDutyRoutes from './routes/cleaningDuty.js';
+import notificationRoutes from './routes/notifications.js';
 import fs from 'fs';
 import path from 'path';
 import fileUpload from 'express-fileupload';
@@ -103,6 +104,7 @@ app.use('/api/uploads', uploadsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/cleaning-duty', cleaningDutyRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Ruta de prueba
 app.get('/api/health', (req, res) => {

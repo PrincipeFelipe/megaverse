@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { User, Calendar, ShoppingCart, Trash2 } from '../../utils/icons';
+import { User, Calendar, ShoppingCart, Trash2, CreditCard } from '../../utils/icons';
 import { Card } from '../ui/Card';
 
 interface MenuItem {
@@ -35,13 +35,19 @@ export const UserSidebar: React.FC = () => {
       active: currentPath === '/products'
     },
     { 
+      name: 'Mis Pagos', 
+      icon: <CreditCard className="w-5 h-5" />, 
+      path: '/payments',
+      active: currentPath === '/payments'
+    },
+    { 
       name: 'Limpieza', 
       icon: <Trash2 className="w-5 h-5" />, 
       path: '/cleaning',
       active: currentPath === '/cleaning'
     }
   ];
-  
+
   return (
     <Card className="sticky top-20 shadow-md">
       <div className="p-4">

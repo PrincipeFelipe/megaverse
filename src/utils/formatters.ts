@@ -41,10 +41,34 @@ export const formatDate = (
  * @returns La cantidad formateada
  */
 export const formatCurrency = (
-  amount: number, 
+  amount: number | string | undefined | null, 
   includeCurrency: boolean = true
 ): string => {
   try {
+    // Si es undefined o null, lo tratamos como 0
+    if (amount === undefined || amount === null) {
+      console.log(`Valor nulo para formatCurrency. Usando 0.`);
+      amount = 0;
+    }
+    
+    // Convertir a número si es una cadena
+    let numAmount: number;
+    
+    if (typeof amount === 'string') {
+      // Solo reemplazamos comas por puntos (formato europeo a formato americano)
+      // pero dejamos los puntos decimales existentes
+      const cleanedAmount = amount.replace(/,/g, '.');
+      numAmount = parseFloat(cleanedAmount);
+    } else {
+      numAmount = Number(amount);
+    }
+    
+    // Verificar si el valor es válido (no es NaN, undefined o null)
+    if (isNaN(numAmount)) {
+      console.log(`Valor inválido para formatCurrency: ${amount}, tipo: ${typeof amount}`);
+      numAmount = 0;
+    }
+    
     const formatter = new Intl.NumberFormat('es-ES', {
       style: includeCurrency ? 'currency' : 'decimal',
       currency: 'EUR',
@@ -52,10 +76,10 @@ export const formatCurrency = (
       maximumFractionDigits: 2
     });
     
-    return formatter.format(amount);
+    return formatter.format(numAmount);
   } catch (error) {
-    console.error('Error al formatear moneda:', error);
-    return `${amount}`;
+    console.error('Error al formatear moneda:', error, 'Valor:', amount);
+    return `${amount || 0}€`;
   }
 };
 
@@ -117,6 +141,27 @@ export const formatLongDate = (date: string | Date): string => {
     return format(dateObj, "d 'de' MMMM 'de' yyyy", { locale: es });
   } catch (error) {
     console.error('Error al formatear fecha:', error);
+    return 'Error de formato';
+  }
+};
+
+/**
+ * Formatea una fecha para mostrar fecha y hora completa
+ * @param date - La fecha a formatear
+ * @returns La fecha formateada con fecha y hora completa
+ */
+export const formatDateTime = (date: string | Date): string => {
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Verificar si es una fecha válida
+    if (isNaN(dateObj.getTime())) {
+      return 'Fecha inválida';
+    }
+    
+    return format(dateObj, "dd/MM/yyyy HH:mm:ss", { locale: es });
+  } catch (error) {
+    console.error('Error al formatear fecha y hora:', error);
     return 'Error de formato';
   }
 };

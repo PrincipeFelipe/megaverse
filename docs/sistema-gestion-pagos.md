@@ -74,7 +74,8 @@ El administrador podrá ver:
 
 Si el usuario especifica consumos al realizar un pago:
 - Solo se marcarán como "en proceso de pago" los consumos especificados
-- El monto debe ser suficiente para cubrir todos los consumos especificados
+- El importe del pago se calcula automáticamente sumando el total de los consumos seleccionados
+- No se permite modificar manualmente el importe, garantizando así la integridad de los datos
 
 Si el usuario no especifica consumos:
 - El sistema seleccionará automáticamente los consumos pendientes más antiguos hasta cubrir el monto del pago
