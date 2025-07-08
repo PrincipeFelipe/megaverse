@@ -266,18 +266,35 @@ export const createPayment = async (req, res) => {
       return res.status(404).json({ error: 'El usuario no existe' });
     }
     
-    // Verificar si ya existe un pago para este usuario, mes y año del mismo tipo
-    const [existingPayment] = await connection.query(
-      'SELECT id FROM payments WHERE user_id = ? AND month = ? AND year = ? AND payment_type = ?',
-      [user_id, month, year, payment_type]
-    );
-    
-    if (existingPayment.length > 0) {
-      connection.release();
-      return res.status(400).json({ 
-        error: 'Ya existe un pago para este usuario en el periodo seleccionado',
-        paymentId: existingPayment[0].id
-      });
+    // Verificar duplicados según el tipo de pago
+    if (payment_type === 'entrance') {
+      // Para cuota de entrada: verificar si ya existe una cuota de entrada para este usuario
+      const [existingEntrance] = await connection.query(
+        'SELECT id FROM payments WHERE user_id = ? AND payment_type = ?',
+        [user_id, 'entrance']
+      );
+      
+      if (existingEntrance.length > 0) {
+        connection.release();
+        return res.status(400).json({ 
+          error: 'Este usuario ya tiene registrada una cuota de entrada',
+          paymentId: existingEntrance[0].id
+        });
+      }
+    } else {
+      // Para cuotas mensuales (normal/maintenance): verificar mes, año y tipo
+      const [existingPayment] = await connection.query(
+        'SELECT id FROM payments WHERE user_id = ? AND month = ? AND year = ? AND payment_type = ?',
+        [user_id, month, year, payment_type]
+      );
+      
+      if (existingPayment.length > 0) {
+        connection.release();
+        return res.status(400).json({ 
+          error: 'Ya existe un pago para este usuario en el periodo seleccionado',
+          paymentId: existingPayment[0].id
+        });
+      }
     }
     
     // Insertar el nuevo pago

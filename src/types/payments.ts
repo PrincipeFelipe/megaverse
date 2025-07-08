@@ -7,7 +7,7 @@ export interface Payment {
   user_id: number;
   amount: number;
   payment_date: string; // YYYY-MM-DD
-  payment_type: 'normal' | 'maintenance';
+  payment_type: 'normal' | 'maintenance' | 'entrance';
   month: number;
   year: number;
   payment_method: string;
@@ -27,7 +27,7 @@ export interface PaymentFormData {
   user_id: number;
   amount: number;
   payment_date: string;
-  payment_type: 'normal' | 'maintenance';
+  payment_type: 'normal' | 'maintenance' | 'entrance';
   month: number;
   year: number;
   payment_method: string;

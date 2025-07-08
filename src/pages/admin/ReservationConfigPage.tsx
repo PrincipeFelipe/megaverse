@@ -24,6 +24,7 @@ const ReservationConfigPage: React.FC = () => {
   // Formulario - Configuración de cuotas
   const [normalFee, setNormalFee] = useState<number>(30);
   const [maintenanceFee, setMaintenanceFee] = useState<number>(15);
+  const [entranceFee, setEntranceFee] = useState<number>(50);
     // Cargar la configuración actual
   useEffect(() => {
     const fetchConfig = async () => {
@@ -55,6 +56,12 @@ const ReservationConfigPage: React.FC = () => {
         }
         if(configData.maintenance_fee !== undefined) {
           setMaintenanceFee(configData.maintenance_fee);
+        }
+        if(configData.entrance_fee !== undefined) {
+          console.log('Cargando entrance_fee desde configuración:', configData.entrance_fee);
+          setEntranceFee(configData.entrance_fee);
+        } else {
+          console.log('⚠️ entrance_fee no está definido en la configuración');
         }} catch (err) {
         const error = err as Error;
         console.error('Error al cargar la configuración:', error);
@@ -70,6 +77,7 @@ const ReservationConfigPage: React.FC = () => {
           requires_approval_for_all_day: true,
           normal_fee: 30,
           maintenance_fee: 15,
+          entrance_fee: 50,
           allow_consecutive_reservations: true,
           min_time_between_reservations: 0
         };
@@ -85,6 +93,8 @@ const ReservationConfigPage: React.FC = () => {
         setMinTimeBetween(defaultConfig.min_time_between_reservations);
         setNormalFee(defaultConfig.normal_fee);
         setMaintenanceFee(defaultConfig.maintenance_fee);
+        console.log('Usando entrance_fee por defecto:', defaultConfig.entrance_fee);
+        setEntranceFee(defaultConfig.entrance_fee);
       } finally {
         setLoading(false);
       }
@@ -108,9 +118,12 @@ const ReservationConfigPage: React.FC = () => {
         requires_approval_for_all_day: requiresApproval,
         normal_fee: normalFee,
         maintenance_fee: maintenanceFee,
+        entrance_fee: entranceFee,
         allow_consecutive_reservations: allowConsecutive,
         min_time_between_reservations: minTimeBetween
       });
+      
+      console.log('Valor específico de entrance_fee:', entranceFee, 'tipo:', typeof entranceFee);
       
       const updatedConfig: ConfigResponse = await configService.updateConfig({
         max_hours_per_reservation: maxHours,
@@ -121,6 +134,7 @@ const ReservationConfigPage: React.FC = () => {
         requires_approval_for_all_day: requiresApproval,
         normal_fee: normalFee,
         maintenance_fee: maintenanceFee,
+        entrance_fee: entranceFee,
         allow_consecutive_reservations: allowConsecutive,
         min_time_between_reservations: minTimeBetween
       });
@@ -161,6 +175,7 @@ const ReservationConfigPage: React.FC = () => {
       isTimeFormatValid(endTime) &&
       normalFee >= 0 &&
       maintenanceFee >= 0 &&
+      entranceFee >= 0 &&
       minTimeBetween >= 0
     );
   };
@@ -344,7 +359,7 @@ const ReservationConfigPage: React.FC = () => {
                 {/* Sección de configuración de cuotas */}
                 <div className="pt-4 mt-4">
                   <h3 className="text-xl font-semibold mb-4 pb-2 border-b">Configuración de Cuotas</h3>
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid md:grid-cols-3 gap-6">
                     {/* Cuota Normal */}
                     <div>
                       <label htmlFor="normalFee" className="block text-sm font-medium mb-1">
@@ -380,6 +395,25 @@ const ReservationConfigPage: React.FC = () => {
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         Cantidad mensual a pagar por los usuarios con cuota de mantenimiento.
+                      </p>
+                    </div>
+                    
+                    {/* Cuota de Entrada */}
+                    <div>
+                      <label htmlFor="entranceFee" className="block text-sm font-medium mb-1">
+                        Cuota de entrada (€)
+                      </label>
+                      <Input
+                        id="entranceFee"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={entranceFee}
+                        onChange={(e) => setEntranceFee(Number(e.target.value))}
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cuota única que pagan los nuevos miembros al registrarse.
                       </p>
                     </div>
                   </div>

@@ -15,9 +15,9 @@ export const getReservationConfig = async (req, res) => {  try {
         INSERT INTO reservation_config 
         (max_hours_per_reservation, max_reservations_per_user_per_day, min_hours_in_advance, 
         allowed_start_time, allowed_end_time, requires_approval_for_all_day, 
-        normal_fee, maintenance_fee, allow_consecutive_reservations, min_time_between_reservations) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [4, 1, 0, '08:00', '22:00', 1, 30, 15, 1, 0]);
+        normal_fee, maintenance_fee, entrance_fee, allow_consecutive_reservations, min_time_between_reservations) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [4, 1, 0, '08:00', '22:00', 1, 30, 15, 50, 1, 0]);
       
       const [defaultConfig] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');
       connection.release();
@@ -43,7 +43,9 @@ export const updateReservationConfig = async (req, res) => {
     
     // Log para depuración
     console.log('Datos recibidos en el servidor:', req.body);
-      const {
+    console.log('entrance_fee recibido:', req.body.entrance_fee, 'tipo:', typeof req.body.entrance_fee);
+    
+    const {
       max_hours_per_reservation,
       max_reservations_per_user_per_day,
       min_hours_in_advance,
@@ -52,6 +54,7 @@ export const updateReservationConfig = async (req, res) => {
       requires_approval_for_all_day,
       normal_fee,
       maintenance_fee,
+      entrance_fee,
       allow_consecutive_reservations,
       min_time_between_reservations
     } = req.body;
@@ -100,6 +103,12 @@ export const updateReservationConfig = async (req, res) => {
       updateValues.push(maintenance_fee);
     }
 
+    if (entrance_fee !== undefined) {
+      console.log('Procesando entrance_fee:', entrance_fee);
+      updateFields.push('entrance_fee = ?');
+      updateValues.push(entrance_fee);
+    }
+
     // Campos de reservas consecutivas
     if (allow_consecutive_reservations !== undefined) {
       updateFields.push('allow_consecutive_reservations = ?');
@@ -118,12 +127,16 @@ export const updateReservationConfig = async (req, res) => {
       // Añadir campo updated_at
     updateFields.push('updated_at = NOW()');
     
+    // Log para depuración de la consulta SQL
+    console.log('Campos a actualizar:', updateFields);
+    console.log('Valores a actualizar:', updateValues);
+    
     // Realizar actualización
     const connection = await pool.getConnection();
-    await connection.query(
-      `UPDATE reservation_config SET ${updateFields.join(', ')} WHERE id = 1`,
-      [...updateValues]
-    );
+    const querySQL = `UPDATE reservation_config SET ${updateFields.join(', ')} WHERE id = 1`;
+    console.log('SQL Query:', querySQL);
+    
+    await connection.query(querySQL, [...updateValues]);
     
     // Obtener configuración actualizada
     const [config] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');

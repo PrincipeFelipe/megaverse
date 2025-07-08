@@ -15,6 +15,7 @@ export interface ReservationConfig {
   // Configuración de cuotas
   normal_fee: number;       // Cuota mensual normal (€)
   maintenance_fee: number;  // Cuota mensual de mantenimiento (€)
+  entrance_fee: number;     // Cuota de entrada única para nuevos miembros (€)
   
   created_at?: string;
   updated_at?: string;

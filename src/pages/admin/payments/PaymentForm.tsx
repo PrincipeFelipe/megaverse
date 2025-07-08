@@ -87,7 +87,9 @@ const PaymentForm: React.FC = () => {
       if (!isEditMode) {
         setPayment(prev => ({
           ...prev,
-          amount: prev.payment_type === 'normal' ? configData.normal_fee : configData.maintenance_fee
+          amount: prev.payment_type === 'normal' ? configData.normal_fee : 
+                  prev.payment_type === 'maintenance' ? configData.maintenance_fee :
+                  configData.entrance_fee
         }));
       }
     } catch (error) {
@@ -135,7 +137,9 @@ const PaymentForm: React.FC = () => {
     
     // Actualizar automáticamente el importe según el tipo de cuota
     if (name === 'payment_type' && config) {
-      const amount = value === 'normal' ? config.normal_fee : config.maintenance_fee;
+      const amount = value === 'normal' ? config.normal_fee : 
+                     value === 'maintenance' ? config.maintenance_fee :
+                     config.entrance_fee;
       setPayment(prev => ({ ...prev, amount }));
     }
   };
@@ -226,6 +230,7 @@ const PaymentForm: React.FC = () => {
                     >
                       <option value="normal">Normal</option>
                       <option value="maintenance">Mantenimiento</option>
+                      <option value="entrance">Entrada</option>
                     </Select>
                   </div>
                 </div>
