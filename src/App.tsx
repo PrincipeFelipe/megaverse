@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
+import { CookieBanner } from './components/ui/CookieBanner';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -12,6 +13,7 @@ import { ProductsPage } from './pages/ProductsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
 import AboutPage from './pages/AboutPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 
 // Importar estilos globales para corregir problemas de SweetAlert
 import './components/ui/sweetalertFix.css';
@@ -82,6 +84,7 @@ const AppContent: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/reservations" element={<ReservationsPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route 
@@ -297,6 +300,7 @@ const AppContent: React.FC = () => {
           </Routes>
         </main>
         <Footer />
+        <CookieBanner />
       </div>
     </Router>
   );
