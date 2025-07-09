@@ -2,17 +2,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { User as UserIcon, Phone, Calendar, Save, Trash2, Camera, X } from '../utils/icons';
+import { User as UserIcon, Phone, Calendar, Save, Trash2, Camera } from '../utils/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { User } from '../types';
 import { uploadService, authService } from '../services/api';
 import { showSuccess, showError, showLoading, closeLoading, showConfirm } from '../utils/alerts';
-import { getAvatarUrl, handleAvatarError } from '../utils/avatar';
+import { getAvatarUrl } from '../utils/avatar';
 
 export const ProfilePage: React.FC = () => {
   const { user, updateUserData } = useAuth();
@@ -29,13 +27,14 @@ export const ProfilePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
-    user?.avatar_url ? getAvatarUrl(user.avatar_url) : null
+    user?.avatar_url ? getAvatarUrl(user.avatar_url) || null : null
   );
 
   // Estado para guardar el archivo seleccionado
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
+    console.log('👤 useEffect usuario - Usuario actualizado:', user);
     if (user) {      setFormData({
         name: user.name || '',
         username: user.username || '',
@@ -47,23 +46,23 @@ export const ProfilePage: React.FC = () => {
       
       // Manejar la URL del avatar
       if (user.avatar_url) {
-        console.log(`Avatar URL del usuario: ${user.avatar_url}`);
-        const avatarUrl = getAvatarUrl(user.avatar_url);
-        console.log(`URL transformada: ${avatarUrl}`);
-        setAvatarPreview(avatarUrl);
+        console.log(`👤 Avatar URL del usuario: ${user.avatar_url}`);
+        const avatarUrl = getAvatarUrl(user.avatar_url, undefined, true);
+        console.log(`👤 URL transformada: ${avatarUrl}`);
+        setAvatarPreview(avatarUrl || null);
         
         // Precargamos la imagen para verificar si es válida
         const img = new Image();
         img.onload = () => {
-          console.log("Avatar cargado correctamente");
+          console.log("👤 Avatar cargado correctamente");
         };
         img.onerror = () => {
-          console.error("Error al cargar el avatar, la URL parece ser inválida");
+          console.error("👤 Error al cargar el avatar, la URL parece ser inválida");
           setAvatarPreview(null);
         };
         img.src = avatarUrl || '';
       } else {
-        console.log("Usuario sin avatar");
+        console.log("👤 Usuario sin avatar");
         setAvatarPreview(null);
       }
     }
@@ -120,7 +119,7 @@ export const ProfilePage: React.FC = () => {
     // Si solo hay una previsualización local (no se ha guardado aún)
     if (selectedFile) {
       setSelectedFile(null);
-      setAvatarPreview(user?.avatar_url ? getAvatarUrl(user.avatar_url) : null);
+      setAvatarPreview(user?.avatar_url ? getAvatarUrl(user.avatar_url) || null : null);
       return;
     }
     
@@ -137,13 +136,17 @@ export const ProfilePage: React.FC = () => {
         setLoading(true);
         showLoading('Eliminando avatar...');
         
-        await uploadService.deleteAvatar();
+        const updatedUser = await uploadService.deleteAvatar();
         // Recargar usuario manualmente para actualizar avatar
         await updateUserData();
         
-        closeLoading();
+        // Actualizar el preview local
         setAvatarPreview(null);
+        
+        closeLoading();
         showSuccess('Imagen eliminada', 'Tu avatar ha sido eliminado correctamente');
+        
+        console.log('🗑️ Avatar eliminado exitosamente:', updatedUser);
       } catch (error) {
         closeLoading();
         showError('Error', 'No se ha podido eliminar el avatar');
@@ -180,9 +183,35 @@ export const ProfilePage: React.FC = () => {
         }
         
         // Subir avatar y actualizar el contexto de autenticación
-        await uploadService.uploadAvatar(selectedFile);
+        console.log('📤 Iniciando subida de avatar...');
+        const updatedUser = await uploadService.uploadAvatar(selectedFile);
+        console.log('✅ Avatar subido, usuario actualizado:', updatedUser);
+        
         // Actualizar el usuario en el contexto
-        await updateUserData();
+        console.log('🔄 Actualizando contexto de usuario...');
+        const contextUser = await updateUserData();
+        console.log('🔄 Usuario del contexto actualizado:', contextUser);
+        
+        // Actualizar el preview local con la nueva URL del avatar
+        if (updatedUser && updatedUser.avatar_url) {
+          const newAvatarUrl = getAvatarUrl(updatedUser.avatar_url, undefined, true);
+          console.log('🖼️ Actualizando preview local:', newAvatarUrl);
+          setAvatarPreview(newAvatarUrl || null);
+        } else if (contextUser && contextUser.avatar_url) {
+          const newAvatarUrl = getAvatarUrl(contextUser.avatar_url, undefined, true);
+          console.log('🖼️ Actualizando preview desde contexto:', newAvatarUrl);
+          setAvatarPreview(newAvatarUrl || null);
+        }
+        
+        // Limpiar el archivo seleccionado
+        setSelectedFile(null);
+        console.log('🧹 Estado local limpiado');
+        
+        // Forzar actualización del componente
+        setTimeout(() => {
+          console.log('🔄 Forzando re-render...');
+          setAvatarPreview(prev => prev); // Trigger re-render
+        }, 100);
       }
       
       // Obtener valores del formulario
@@ -296,11 +325,12 @@ export const ProfilePage: React.FC = () => {
                 >                  {avatarPreview ? (
                     <>
                       <img 
+                        key={`profile-avatar-${user?.id}-${avatarPreview}-${Date.now()}`}
                         src={avatarPreview} 
                         alt="Avatar" 
                         className="w-full h-full object-cover"
                         onLoad={() => console.log('Avatar cargado exitosamente en ProfilePage')}
-                        onError={(e) => {
+                        onError={() => {
                           console.error(`Error al cargar avatar desde URL: ${avatarPreview}`);
                           console.error('URL original del usuario:', user?.avatar_url);
                           
@@ -357,7 +387,7 @@ export const ProfilePage: React.FC = () => {
                   {avatarPreview && (
                     <Button
                       type="button"
-                      variant="danger"
+                      variant="outline"
                       size="sm"
                       onClick={handleRemoveAvatar}
                       disabled={loading}

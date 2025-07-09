@@ -6,12 +6,25 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import { NotificationDropdown } from '../ui/NotificationDropdown';
+import { useForceUpdate } from '../../hooks/useForceUpdate';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const forceUpdate = useForceUpdate();
+  
+  // Debug: loggar cuando cambie el usuario
+  useEffect(() => {
+    console.log('🔔 Header: Usuario actualizado:', user);
+    if (user?.avatar_url) {
+      console.log('🔔 Header: URL de avatar:', user.avatar_url);
+      console.log('🔔 Header: URL transformada:', getAvatarUrl(user.avatar_url));
+      // Forzar actualización del componente cuando cambie el avatar
+      forceUpdate();
+    }
+  }, [user, forceUpdate]);
   
   // Definir rutas de navegación basadas en autenticación  
   const navigation = [
@@ -88,7 +101,8 @@ export const Header: React.FC = () => {
                     {user.avatar_url ? (
                       <div className="avatar avatar-header">
                         <img 
-                          src={getAvatarUrl(user.avatar_url) || undefined}
+                          key={`avatar-${user.id}-${user.avatar_url}-${Date.now()}`}
+                          src={getAvatarUrl(user.avatar_url, undefined, true) || undefined}
                           alt="Avatar" 
                           onLoad={() => console.log('Avatar cargado exitosamente en Header')}
                           onError={(e) => handleAvatarError(e.currentTarget)}

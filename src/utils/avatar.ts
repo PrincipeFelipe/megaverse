@@ -4,16 +4,23 @@
  * Obtiene la URL completa del avatar basado en la ruta almacenada
  * @param avatarPath Ruta del avatar almacenada en la base de datos
  * @param defaultValue Valor por defecto si no hay avatar
+ * @param forceRefresh Si es true, añade un timestamp para evitar caché
  * @returns URL completa del avatar o el valor por defecto
  */
 export const getAvatarUrl = (
   avatarPath: string | undefined | null,
-  defaultValue: string | null | undefined = undefined
+  defaultValue: string | null | undefined = undefined,
+  forceRefresh: boolean = false
 ): string | null | undefined => {
   if (!avatarPath) return defaultValue;
 
   // Si ya es una URL completa, devolverla
   if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
+    // Añadir timestamp si se requiere refresh
+    if (forceRefresh) {
+      const separator = avatarPath.includes('?') ? '&' : '?';
+      return `${avatarPath}${separator}_t=${Date.now()}`;
+    }
     return avatarPath;
   }
 
@@ -41,7 +48,15 @@ export const getAvatarUrl = (
   }
   
   // Construir la URL final y asegurarse de que no haya barras dobles
-  const fullUrl = `${API_URL}${finalPath}`.replace(/([^:])\/\//g, "$1/");
+  let fullUrl = `${API_URL}${finalPath}`.replace(/([^:])\/\//g, "$1/");
+  
+  // Añadir timestamp si se requiere refresh
+  if (forceRefresh) {
+    const separator = fullUrl.includes('?') ? '&' : '?';
+    fullUrl = `${fullUrl}${separator}_t=${Date.now()}`;
+    console.log(`Avatar con timestamp para evitar caché: ${fullUrl}`);
+  }
+  
   console.log(`Avatar: ruta original [${avatarPath}] -> URL final [${fullUrl}]`);
   
   // Devolver la URL completa

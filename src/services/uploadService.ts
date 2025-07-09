@@ -36,9 +36,12 @@ export const uploadService = {
         body: formData
       });
       
+      console.log('📤 Respuesta de subida:', response.status, response.statusText);
+      
       if (!response.ok) {
         try {
           const errorData = await response.json();
+          console.error('📤 Error en respuesta:', errorData);
           throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
         } catch {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -46,6 +49,8 @@ export const uploadService = {
       }
       
       const responseData = await response.json();
+      console.log('📤 Datos de respuesta exitosa:', responseData);
+      console.log('📤 Usuario actualizado:', responseData.user);
       return responseData.user;
     } catch (error) {
       console.error('Error al subir avatar:', error instanceof Error ? error.message : 'Error desconocido');
@@ -74,9 +79,12 @@ export const uploadService = {
         }
       });
       
+      console.log('🗑️ Respuesta de eliminación:', response.status, response.statusText);
+      
       if (!response.ok) {
         try {
           const errorData = await response.json();
+          console.error('🗑️ Error en respuesta:', errorData);
           throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
         } catch {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -84,6 +92,8 @@ export const uploadService = {
       }
       
       const responseData = await response.json();
+      console.log('🗑️ Datos de respuesta exitosa:', responseData);
+      console.log('🗑️ Usuario actualizado:', responseData.user);
       return responseData.user;
     } catch (error) {
       console.error('Error al eliminar avatar:', error instanceof Error ? error.message : 'Error desconocido');

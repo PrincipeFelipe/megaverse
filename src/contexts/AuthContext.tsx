@@ -16,6 +16,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+  const [updateCounter, setUpdateCounter] = useState(0);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -72,11 +73,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Nueva función para actualizar el usuario
   const updateUserData = async () => {
     try {
+      console.log('🔄 AuthContext: Iniciando actualización de usuario...');
       const userData = await authService.getProfile();
+      console.log('🔄 AuthContext: Datos obtenidos del servidor:', userData);
+      
+      // Forzar actualización incrementando el contador
+      setUpdateCounter(prev => prev + 1);
       setUser(userData);
+      
+      // Adicional: forzar re-render con un pequeño delay
+      setTimeout(() => {
+        setUser(() => ({ ...userData }));
+        console.log('🔄 AuthContext: Forzado re-render del usuario');
+      }, 50);
+      
+      console.log('🔄 AuthContext: Usuario actualizado en contexto');
       return userData;
     } catch (error) {
-      console.error('Error al actualizar datos de usuario:', error);
+      console.error('🔄 AuthContext: Error al actualizar datos de usuario:', error);
       throw error;
     }
   };

@@ -134,13 +134,17 @@ export const authService = {
     return response.json();
   },
     getProfile: async () => {
+    console.log('🔍 API: Obteniendo perfil del usuario...');
     const response = await fetchWithAuth('/auth/me');
     
     if (!response.ok) {
+      console.error('🔍 API: Error al obtener perfil:', response.status, response.statusText);
       throw new Error('Error al obtener el perfil');
     }
     
-    return response.json();
+    const profileData = await response.json();
+    console.log('🔍 API: Perfil obtenido del servidor:', profileData);
+    return profileData;
   },  updateProfile: async (userData: {
     name?: string;
     username?: string;
