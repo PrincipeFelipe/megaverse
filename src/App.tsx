@@ -14,6 +14,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
 import AboutPage from './pages/AboutPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { RSSFeedPage } from './pages/RSSFeedPage';
 
 // Importar estilos globales para corregir problemas de SweetAlert
 import './components/ui/sweetalertFix.css';
@@ -85,6 +86,7 @@ const AppContent: React.FC = () => {
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/rss" element={<RSSFeedPage />} />
             <Route path="/reservations" element={<ReservationsPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { blogService } from '../../services/blogService';
 import { BlogPost, BlogCategory, BlogTag } from '../../types/blog';
 import { BlogFilters } from '../../components/blog/BlogFilters';
@@ -118,10 +118,25 @@ const BlogPage: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Blog de la Asociación</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Últimas noticias, eventos y artículos relacionados con nuestra comunidad
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Blog de la Asociación</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Últimas noticias, eventos y artículos relacionados con nuestra comunidad
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              to="/rss"
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M4 11a9 9 0 0 1 9-9 9 9 0 0 1 9 9 9 9 0 0 1-9 9 9 9 0 0 1-9-9M6 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3M12 12.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3m6 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3" />
+              </svg>
+              RSS
+            </Link>
+          </div>
+        </div>
       </div>
       
       {/* Filtros */}

@@ -15,6 +15,7 @@ import expensesRoutes from './routes/expenses.js';
 import uploadsRoutes from './routes/uploads.js';
 import documentsRoutes from './routes/documents.js';
 import blogRoutes from './routes/blog.js';
+import rssRoutes from './routes/rss.js';
 import cleaningDutyRoutes from './routes/cleaningDuty.js';
 import notificationRoutes from './routes/notifications.js';
 import fs from 'fs';
@@ -93,6 +94,7 @@ app.use('/api/expenses', expensesRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/rss', rssRoutes);
 app.use('/api/cleaning-duty', cleaningDutyRoutes);
 app.use('/api/notifications', notificationRoutes);
 

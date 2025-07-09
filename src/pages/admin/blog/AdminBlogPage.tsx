@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../../../components/admin/AdminLayout';
 import { BlogPost, BlogCategory, BlogTag } from '../../../types/blog';
 import { blogService } from '../../../services/blogService';
+import { showDangerConfirm, showError, showSuccess } from '../../../utils/alerts';
 import { Link } from 'react-router-dom';
 import { Blog } from '../../../utils/BlogIcon';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../../components/ui/Tabs';
@@ -103,40 +104,73 @@ const AdminBlogPage: React.FC = () => {
 
 
   const handleDeletePost = async (id: number) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta publicación? Esta acción no se puede deshacer.')) {
+    const post = posts.find(p => p.id === id);
+    const postTitle = post ? post.title : 'esta publicación';
+    
+    const confirmed = await showDangerConfirm(
+      '¿Eliminar publicación?',
+      `¿Estás seguro de que deseas eliminar "${postTitle}"? Esta acción no se puede deshacer.`,
+      'Sí, eliminar',
+      'Cancelar'
+    );
+    
+    if (confirmed) {
       try {
         await blogService.deletePost(id);
-        fetchPosts();
+        await fetchPosts();
+        showSuccess('¡Eliminado!', 'La publicación ha sido eliminada correctamente.');
       } catch (error: unknown) {
         console.error('Error al eliminar post:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-        setError(`Error al eliminar la publicación: ${errorMessage}`);
+        showError('Error al eliminar', `No se pudo eliminar la publicación: ${errorMessage}`);
       }
     }
   };
   
   const handleDeleteCategory = async (id: number) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta categoría? Esta acción no se puede deshacer.')) {
+    const category = categories.find(c => c.id === id);
+    const categoryName = category ? category.name : 'esta categoría';
+    
+    const confirmed = await showDangerConfirm(
+      '¿Eliminar categoría?',
+      `¿Estás seguro de que deseas eliminar la categoría "${categoryName}"? Esta acción no se puede deshacer.`,
+      'Sí, eliminar',
+      'Cancelar'
+    );
+    
+    if (confirmed) {
       try {
         await blogService.deleteCategory(id);
-        fetchCategories();
+        await fetchCategories();
+        showSuccess('¡Eliminado!', 'La categoría ha sido eliminada correctamente.');
       } catch (error: unknown) {
         console.error('Error al eliminar categoría:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-        setCategoriesError(`Error al eliminar la categoría: ${errorMessage}`);
+        showError('Error al eliminar', `No se pudo eliminar la categoría: ${errorMessage}`);
       }
     }
   };
   
   const handleDeleteTag = async (id: number) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta etiqueta? Esta acción no se puede deshacer.')) {
+    const tag = tags.find(t => t.id === id);
+    const tagName = tag ? tag.name : 'esta etiqueta';
+    
+    const confirmed = await showDangerConfirm(
+      '¿Eliminar etiqueta?',
+      `¿Estás seguro de que deseas eliminar la etiqueta "${tagName}"? Esta acción no se puede deshacer.`,
+      'Sí, eliminar',
+      'Cancelar'
+    );
+    
+    if (confirmed) {
       try {
         await blogService.deleteTag(id);
-        fetchTags();
+        await fetchTags();
+        showSuccess('¡Eliminado!', 'La etiqueta ha sido eliminada correctamente.');
       } catch (error: unknown) {
         console.error('Error al eliminar etiqueta:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-        setTagsError(`Error al eliminar la etiqueta: ${errorMessage}`);
+        showError('Error al eliminar', `No se pudo eliminar la etiqueta: ${errorMessage}`);
       }
     }
   };

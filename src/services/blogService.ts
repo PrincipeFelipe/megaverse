@@ -12,9 +12,12 @@ export const blogService = {
    */
   getAllPosts: async (filters?: BlogFilters, isPublicPage = false): Promise<BlogPost[]> => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
+      // Solo requerir autenticación si NO es la página pública
+      if (!isPublicPage) {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Se requiere autenticación');
+        }
       }
       
       console.log('blogService.getAllPosts - isPublicPage:', isPublicPage);
@@ -57,10 +60,18 @@ export const blogService = {
       // Log para mostrar la URL completa de la solicitud
       console.log('Enviando solicitud a:', url);
       
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Construir headers según si es página pública o no
+      const headers: Record<string, string> = {};
+      
+      if (!isPublicPage) {
+        const token = localStorage.getItem('token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
         }
+      }
+      
+      const response = await fetch(url, {
+        headers: headers
       });
       
       if (!response.ok) {
@@ -128,9 +139,12 @@ export const blogService = {
    */
   getPostBySlug: async (slug: string, isPublicPage = false): Promise<BlogPost> => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
+      // Solo requerir autenticación si NO es la página pública
+      if (!isPublicPage) {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Se requiere autenticación');
+        }
       }
       
       // Añadimos el parámetro publicOnly cuando estamos en la página pública
@@ -142,10 +156,18 @@ export const blogService = {
       console.log(`Obteniendo post por slug: ${slug}, isPublicPage: ${isPublicPage}`);
       console.log(`URL: ${url}`);
       
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Construir headers según si es página pública o no
+      const headers: Record<string, string> = {};
+      
+      if (!isPublicPage) {
+        const token = localStorage.getItem('token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
         }
+      }
+      
+      const response = await fetch(url, {
+        headers: headers
       });
       
       if (!response.ok) {
@@ -296,16 +318,8 @@ export const blogService = {
    */
   getAllCategories: async (): Promise<BlogCategory[]> => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/categories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Las categorías son públicas, no requieren autenticación para lectura
+      const response = await fetch(`${API_URL}/blog/categories`);
       
       if (!response.ok) {
         throw new Error(`Error al obtener categorías: ${response.status}`);
@@ -420,16 +434,8 @@ export const blogService = {
    */
   getAllTags: async (): Promise<BlogTag[]> => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Se requiere autenticación');
-      }
-      
-      const response = await fetch(`${API_URL}/blog/tags`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Los tags son públicos, no requieren autenticación para lectura
+      const response = await fetch(`${API_URL}/blog/tags`);
       
       if (!response.ok) {
         throw new Error(`Error al obtener etiquetas: ${response.status}`);
