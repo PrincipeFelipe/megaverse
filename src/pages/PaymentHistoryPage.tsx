@@ -530,7 +530,10 @@ export function PaymentHistoryPage() {
                           €{parseFloat(payment.amount.toString()).toFixed(2)}
                         </Table.Cell>
                         <Table.Cell>
-                          {payment.payment_type === 'normal' ? 'Regular' : 'Mantenimiento'}
+                          {payment.payment_type === 'normal' ? 'Regular' : 
+                           payment.payment_type === 'maintenance' ? 'Mantenimiento' : 
+                           payment.payment_type === 'entrance' ? 'Entrada' : 
+                           payment.payment_type}
                         </Table.Cell>                        <Table.Cell>
                           {payment.month && payment.year ? (
                             <>

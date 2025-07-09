@@ -19,7 +19,7 @@ router.post('/avatar', uploadAvatar, uploadUserAvatar);
 router.delete('/avatar', deleteUserAvatar);
 
 // Rutas para imágenes del blog
-router.post('/blog', uploadBlogImageHandler);
+router.post('/blog', uploadBlogImage, uploadBlogImageHandler);
 router.delete('/blog/:filename', deleteBlogImage);
 
 export default router;

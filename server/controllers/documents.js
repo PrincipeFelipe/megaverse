@@ -160,67 +160,34 @@ const getDocumentById = async (req, res) => {
 const uploadDocument = async (req, res) => {
   let connection;
   try {
-    // Verificar que se haya subido un archivo
-    if (!req.files || !req.files.file) {
+    // Verificar que se haya subido un archivo (multer)
+    if (!req.file) {
       return res.status(400).json({
         success: false,
         message: 'No se ha subido ningún archivo'
       });
     }
     
-    const { file } = req.files;
     const { title, description, category } = req.body;
     
     // Validar campos obligatorios
     if (!title || !category) {
+      // Si hay un error de validación, eliminar el archivo que se subió
+      try {
+        await fs.unlink(req.file.path);
+      } catch (unlinkError) {
+        console.error('Error al eliminar archivo tras validación fallida:', unlinkError);
+      }
+      
       return res.status(400).json({
         success: false,
         message: 'El título y la categoría son obligatorios'
       });
     }
     
-    // Validar tamaño máximo (20MB)
-    const MAX_SIZE = 20 * 1024 * 1024; // 20MB en bytes
-    if (file.size > MAX_SIZE) {
-      return res.status(400).json({
-        success: false,
-        message: 'El archivo es demasiado grande (máximo 20MB)'
-      });
-    }
-    
-    // Generar un nombre único para el archivo
-    const fileExtension = path.extname(file.name);
-    const fileName = `${uuidv4()}${fileExtension}`;
-    const filePath = path.join(UPLOADS_DIR, fileName);
-    
-    // Asegurarnos de que file.data existe y contiene datos
-    if (!file.data || !(file.data instanceof Buffer) || file.data.length === 0) {
-      console.error('Error: file.data está vacío o no es un Buffer válido. file.data:', file.data);
-      
-      // Intentar con file.mv como alternativa
-      await new Promise((resolve, reject) => {
-        file.mv(filePath, (err) => {
-          if (err) {
-            console.error('Error al mover archivo:', err);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-      
-      // Verificar que el archivo se haya guardado correctamente
-      const stats = await fs.stat(filePath);
-      console.log(`Archivo guardado: ${filePath}, tamaño: ${stats.size} bytes`);
-      if (stats.size === 0) {
-        throw new Error('El archivo se guardó pero está vacío (0 bytes)');
-      }
-    } else {
-      // Si file.data es un Buffer válido, guardarlo directamente
-      await fs.writeFile(filePath, file.data);
-      console.log(`Archivo guardado con fs.writeFile: ${filePath}, tamaño: ${file.data.length} bytes`);
-    }
-    
+    console.log(`Archivo recibido: ${req.file.originalname}, guardado como: ${req.file.filename}`);
+    console.log(`Ruta del archivo: ${req.file.path}`);
+
     // Guardar información en la base de datos
     connection = await mysql.createConnection(DB_CONFIG);
     
@@ -231,10 +198,10 @@ const uploadDocument = async (req, res) => {
     `, [
       title,
       description || '',
-      `/uploads/documents/${fileName}`,
-      file.name,
-      file.mimetype,
-      file.size,
+      `/uploads/documents/${req.file.filename}`,
+      req.file.originalname,
+      req.file.mimetype,
+      req.file.size,
       category,
       req.user.id
     ]);
@@ -255,6 +222,17 @@ const uploadDocument = async (req, res) => {
     
   } catch (error) {
     console.error('Error al subir documento:', error);
+    
+    // Eliminar el archivo físico si se subió pero hubo error en BD
+    if (req.file && req.file.path) {
+      try {
+        await fs.unlink(req.file.path);
+        console.log('Archivo eliminado tras error en BD:', req.file.path);
+      } catch (unlinkError) {
+        console.error('Error al eliminar archivo tras error en BD:', unlinkError);
+      }
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error al subir el documento',

@@ -165,3 +165,81 @@ export const formatDateTime = (date: string | Date): string => {
     return 'Error de formato';
   }
 };
+
+/**
+ * Obtiene el nombre del mes en español
+ * @param month - El número del mes (1-12)
+ * @returns El nombre del mes en español
+ */
+export const getMonthName = (month: number): string => {
+  if (!month || month < 1 || month > 12) {
+    return 'Mes inválido';
+  }
+  return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2000, month - 1, 1));
+};
+
+/**
+ * Formatea el tipo de pago a texto legible en español
+ * @param paymentType - El tipo de pago ('normal', 'maintenance', 'entrance')
+ * @returns El texto formateado del tipo de pago
+ */
+export const formatPaymentType = (paymentType: string): string => {
+  const paymentTypeMap: Record<string, string> = {
+    'normal': 'Normal',
+    'maintenance': 'Mantenimiento',
+    'entrance': 'Entrada'
+  };
+  
+  return paymentTypeMap[paymentType] || paymentType;
+};
+
+/**
+ * Obtiene el estilo CSS para el tipo de pago
+ * @param paymentType - El tipo de pago
+ * @returns La clase CSS correspondiente
+ */
+export const getPaymentTypeStyle = (paymentType: string): string => {
+  const styleMap: Record<string, string> = {
+    'normal': 'bg-blue-100 text-blue-800',
+    'maintenance': 'bg-green-100 text-green-800',
+    'entrance': 'bg-purple-100 text-purple-800'
+  };
+  
+  return styleMap[paymentType] || 'bg-gray-100 text-gray-800';
+};
+
+/**
+ * Formatea el período de un pago (mes/año) o indica si no aplica
+ * @param month - El mes del pago (puede ser null para cuotas de entrada)
+ * @param year - El año del pago (puede ser null para cuotas de entrada)
+ * @param paymentType - El tipo de pago para contexto
+ * @returns El período formateado o texto indicativo
+ */
+export const formatPaymentPeriod = (
+  month: number | null, 
+  year: number | null, 
+  paymentType?: string
+): string => {
+  if (!month || !year) {
+    return paymentType === 'entrance' ? 'No aplica (cuota de entrada)' : '-';
+  }
+  
+  return `${getMonthName(month)} ${year}`;
+};
+
+/**
+ * Formatea el período corto (solo mes/año numérico)
+ * @param month - El mes del pago
+ * @param year - El año del pago
+ * @returns El período en formato MM/YYYY o '-'
+ */
+export const formatShortPaymentPeriod = (
+  month: number | null, 
+  year: number | null
+): string => {
+  if (!month || !year) {
+    return '-';
+  }
+  
+  return `${month}/${year}`;
+};

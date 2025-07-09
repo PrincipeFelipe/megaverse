@@ -667,19 +667,27 @@ export const generatePaymentReport = async (req, res) => {
     
     const [payments] = await connection.query(query, queryParams);
     
-    // Calcular totales
-    const [totals] = await connection.query(
-      `SELECT 
+    // Calcular totales - construir consulta y parámetros separadamente
+    let totalsQuery = `
+      SELECT 
         COUNT(*) as count,
         SUM(amount) as total,
         payment_type,
         COUNT(DISTINCT user_id) as users_count
        FROM payments
        WHERE payment_date BETWEEN ? AND ?
-       ${paymentType ? "AND payment_type = ?" : ""}
-       GROUP BY payment_type`,
-      queryParams
-    );
+    `;
+    
+    const totalsParams = [startDate, endDate];
+    
+    if (paymentType) {
+      totalsQuery += " AND payment_type = ?";
+      totalsParams.push(paymentType);
+    }
+    
+    totalsQuery += " GROUP BY payment_type";
+    
+    const [totals] = await connection.query(totalsQuery, totalsParams);
     
     connection.release();
     

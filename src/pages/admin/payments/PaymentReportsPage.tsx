@@ -50,7 +50,7 @@ const PaymentReportsPage: React.FC = () => {
       const reportData = await paymentsService.getPaymentReport({
         startDate,
         endDate,
-        paymentType: paymentType === 'all' ? undefined : paymentType as 'normal' | 'maintenance'
+        paymentType: paymentType === 'all' ? undefined : paymentType as 'normal' | 'maintenance' | 'entrance'
       });
       
       setReport(reportData);
@@ -149,6 +149,7 @@ const PaymentReportsPage: React.FC = () => {
                 <option value="all">Todos</option>
                 <option value="normal">Normal</option>
                 <option value="maintenance">Mantenimiento</option>
+                <option value="entrance">Entrada</option>
               </Select>
             </div>
           </div>
@@ -186,6 +187,7 @@ const PaymentReportsPage: React.FC = () => {
                       <p className="text-sm text-gray-600 dark:text-gray-300">
                         {total.payment_type === 'normal' ? 'Cuotas normales' : 
                          total.payment_type === 'maintenance' ? 'Cuotas mantenimiento' : 
+                         total.payment_type === 'entrance' ? 'Cuotas de entrada' :
                          'Todas las cuotas'}
                       </p>
                       <div className="mt-1">
@@ -212,8 +214,11 @@ const PaymentReportsPage: React.FC = () => {
                     payment.id,
                     payment.user_name || `Usuario ${payment.user_id}`,
                     new Date(payment.payment_date).toLocaleDateString(),
-                    `${payment.month}/${payment.year}`,
-                    payment.payment_type === 'normal' ? 'Normal' : 'Mantenimiento',
+                    payment.month && payment.year ? `${payment.month}/${payment.year}` : '-',
+                    payment.payment_type === 'normal' ? 'Normal' : 
+                    payment.payment_type === 'maintenance' ? 'Mantenimiento' :
+                    payment.payment_type === 'entrance' ? 'Entrada' :
+                    payment.payment_type,
                     payment.payment_method,
                     formatCurrency(payment.amount)
                   ])}

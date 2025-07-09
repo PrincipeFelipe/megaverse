@@ -19,7 +19,6 @@ import cleaningDutyRoutes from './routes/cleaningDuty.js';
 import notificationRoutes from './routes/notifications.js';
 import fs from 'fs';
 import path from 'path';
-import fileUpload from 'express-fileupload';
 
 // Configurar variables de entorno
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -36,15 +35,6 @@ app.use(cors({
   exposedHeaders: ['Content-Disposition'] // Útil para descargas
 }));
 app.use(express.json());
-
-// Middleware para manejar la subida de archivos
-app.use(fileUpload({
-  limits: { fileSize: 50 * 1024 * 1024 }, // Límite de 50MB
-  createParentPath: true,
-  useTempFiles: true,
-  tempFileDir: '/tmp/',
-  debug: true // Habilitar logs para depuración
-}));
 
 // Configuración para servir archivos estáticos
 // Servir desde la raíz /uploads

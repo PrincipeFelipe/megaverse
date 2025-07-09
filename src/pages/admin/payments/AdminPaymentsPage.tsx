@@ -337,15 +337,22 @@ const AdminPaymentsPage: React.FC = () => {
                       <Table.Cell>{payment.user_name}</Table.Cell>
                       <Table.Cell>{formatDate(payment.payment_date)}</Table.Cell>
                       <Table.Cell>
-                        {getMonthName(payment.month)} {payment.year}
+                        {payment.month && payment.year ? 
+                          `${getMonthName(payment.month)} ${payment.year}` : 
+                          '-'}
                       </Table.Cell>
                       <Table.Cell>
                         <span className={`px-2 py-1 rounded-full text-sm ${
                           payment.payment_type === 'normal' 
                             ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
+                            : payment.payment_type === 'maintenance'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-purple-100 text-purple-800'
                         }`}>
-                          {payment.payment_type === 'normal' ? 'Normal' : 'Mantenimiento'}
+                          {payment.payment_type === 'normal' ? 'Normal' : 
+                           payment.payment_type === 'maintenance' ? 'Mantenimiento' :
+                           payment.payment_type === 'entrance' ? 'Entrada' :
+                           payment.payment_type}
                         </span>
                       </Table.Cell>
                       <Table.Cell>{formatCurrency(payment.amount)}</Table.Cell>

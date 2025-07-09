@@ -11,6 +11,7 @@ import {
   downloadDocument,
   previewDocument
 } from '../controllers/documents.js';
+import { uploadDocument as uploadDocumentMiddleware } from '../controllers/uploads.js';
 import { authenticateToken as authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -37,7 +38,7 @@ router.get('/:id', getDocumentById);
  * @desc    Subir un nuevo documento
  * @access  Private
  */
-router.post('/', uploadDocument);
+router.post('/', uploadDocumentMiddleware, uploadDocument);
 
 /**
  * @route   PUT /api/documents/:id

@@ -24,13 +24,38 @@ const getMonthName = (month: number): string => {
 };
 
 // Componente para la tarjeta de resumen
-const StatsSummaryCard: React.FC<{ title: string; value: string; subtitle?: string; className?: string }> = ({ title, value, subtitle, className = '' }) => {
+const StatsSummaryCard: React.FC<{ title: string; value: string; subtitle?: string; className?: string; color?: string }> = ({ title, value, subtitle, className = '', color = 'blue' }) => {
+  const colorClasses = {
+    blue: {
+      border: 'border-l-blue-500',
+      title: 'text-blue-600 dark:text-blue-400',
+      accent: 'bg-blue-50 dark:bg-blue-900/20'
+    },
+    emerald: {
+      border: 'border-l-emerald-500',
+      title: 'text-emerald-600 dark:text-emerald-400',
+      accent: 'bg-emerald-50 dark:bg-emerald-900/20'
+    },
+    violet: {
+      border: 'border-l-violet-500',
+      title: 'text-violet-600 dark:text-violet-400',
+      accent: 'bg-violet-50 dark:bg-violet-900/20'
+    },
+    amber: {
+      border: 'border-l-amber-500',
+      title: 'text-amber-600 dark:text-amber-400',
+      accent: 'bg-amber-50 dark:bg-amber-900/20'
+    }
+  };
+  
+  const selectedColor = colorClasses[color as keyof typeof colorClasses];
+  
   return (
-    <Card className={className}>
-      <div className="p-4">
-        <h3 className="text-lg font-medium text-gray-500">{title}</h3>
-        <p className="mt-1 text-3xl font-semibold">{value}</p>
-        {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+    <Card className={`border-l-4 ${selectedColor.border} ${selectedColor.accent} shadow-lg hover:shadow-xl transition-shadow duration-200 ${className}`}>
+      <div className="p-6">
+        <h3 className={`text-xs font-bold uppercase tracking-wider mb-3 ${selectedColor.title}`}>{title}</h3>
+        <p className="text-3xl lg:text-4xl font-black text-gray-900 dark:text-white mb-2">{value}</p>
+        {subtitle && <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{subtitle}</p>}
       </div>
     </Card>
   );
@@ -59,8 +84,8 @@ const PaymentStatsPage: React.FC = () => {
         
         const result = await paymentsService.getPaymentStats(selectedYear);
         setStats(result);
-      } catch (error: any) {
-        showError('Error', error.message || 'Error al cargar las estadísticas');
+      } catch (error) {
+        showError('Error', error instanceof Error ? error.message : 'Error al cargar las estadísticas');
       } finally {
         setLoading(false);
       }
@@ -122,12 +147,12 @@ const PaymentStatsPage: React.FC = () => {
           </div>
         ) : stats ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatsSummaryCard 
                 title="Total recaudado" 
                 value={formatCurrency(stats.yearlyTotal.total)}
                 subtitle={`${stats.yearlyTotal.count} pagos en ${selectedYear}`}
-                className="bg-gradient-to-br from-blue-50 to-blue-100"
+                color="blue"
               />
               
               <StatsSummaryCard 
@@ -138,7 +163,7 @@ const PaymentStatsPage: React.FC = () => {
                 subtitle={`${stats.monthlyStats
                   .filter(s => s.payment_type === 'normal')
                   .reduce((acc, curr) => acc + Number(curr.count), 0)} pagos`}
-                className="bg-gradient-to-br from-green-50 to-green-100"
+                color="emerald"
               />
               
               <StatsSummaryCard 
@@ -149,7 +174,18 @@ const PaymentStatsPage: React.FC = () => {
                 subtitle={`${stats.monthlyStats
                   .filter(s => s.payment_type === 'maintenance')
                   .reduce((acc, curr) => acc + Number(curr.count), 0)} pagos`}
-                className="bg-gradient-to-br from-purple-50 to-purple-100"
+                color="violet"
+              />
+
+              <StatsSummaryCard 
+                title="Cuotas de entrada" 
+                value={formatCurrency(stats.monthlyStats
+                  .filter(s => s.payment_type === 'entrance')
+                  .reduce((acc, curr) => acc + Number(curr.total), 0))}
+                subtitle={`${stats.monthlyStats
+                  .filter(s => s.payment_type === 'entrance')
+                  .reduce((acc, curr) => acc + Number(curr.count), 0)} pagos`}
+                color="amber"
               />
             </div>
             
@@ -183,9 +219,16 @@ const PaymentStatsPage: React.FC = () => {
                             <span className={`px-2 py-1 rounded-full text-sm ${
                               stat.payment_type === 'normal' 
                                 ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-green-100 text-green-800'
+                                : stat.payment_type === 'maintenance'
+                                ? 'bg-purple-100 text-purple-800'
+                                : stat.payment_type === 'entrance'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-gray-100 text-gray-800'
                             }`}>
-                              {stat.payment_type === 'normal' ? 'Normal' : 'Mantenimiento'}
+                              {stat.payment_type === 'normal' ? 'Normal' : 
+                               stat.payment_type === 'maintenance' ? 'Mantenimiento' :
+                               stat.payment_type === 'entrance' ? 'Entrada' :
+                               stat.payment_type}
                             </span>
                           </Table.Cell>
                           <Table.Cell className="text-right">{stat.count}</Table.Cell>

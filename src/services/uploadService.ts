@@ -26,10 +26,9 @@ export const uploadService = {
       const formData = new FormData();
       formData.append('avatar', file);
       
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
-      const API_PATH = '';
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
       
-      const response = await fetch(`${API_URL}${API_PATH}/uploads/avatar`, {
+      const response = await fetch(`${API_URL}/uploads/avatar`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -41,7 +40,7 @@ export const uploadService = {
         try {
           const errorData = await response.json();
           throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
-        } catch (_) {
+        } catch {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
       }
@@ -65,10 +64,9 @@ export const uploadService = {
         throw new Error('Se requiere autenticación para eliminar un avatar');
       }
       
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
-      const API_PATH = '';
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
       
-      const response = await fetch(`${API_URL}${API_PATH}/uploads/avatar`, {
+      const response = await fetch(`${API_URL}/uploads/avatar`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +78,7 @@ export const uploadService = {
         try {
           const errorData = await response.json();
           throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
-        } catch (_) {
+        } catch {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
       }

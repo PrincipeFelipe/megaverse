@@ -210,7 +210,7 @@ export const paymentsService = {
     /**
    * Genera un informe de pagos para un período específico
    */
-  generatePaymentReport: async (startDate: string, endDate: string, paymentType?: 'normal' | 'maintenance'): Promise<PaymentReportResponse> => {
+  generatePaymentReport: async (startDate: string, endDate: string, paymentType?: 'normal' | 'maintenance' | 'entrance'): Promise<PaymentReportResponse> => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -242,7 +242,7 @@ export const paymentsService = {
   /**
    * Obtiene un informe de pagos (método alternativo que acepta un objeto de filtros)
    */
-  getPaymentReport: async (filters: { startDate?: string; endDate?: string; paymentType?: 'normal' | 'maintenance' }): Promise<PaymentReportResponse> => {
+  getPaymentReport: async (filters: { startDate?: string; endDate?: string; paymentType?: 'normal' | 'maintenance' | 'entrance' }): Promise<PaymentReportResponse> => {
     try {
       return await paymentsService.generatePaymentReport(
         filters.startDate || '', 

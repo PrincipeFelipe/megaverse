@@ -58,7 +58,7 @@ const PaymentForm: React.FC = () => {
           setPayment({
             user_id: existingPayment.user_id,
             amount: existingPayment.amount,
-            payment_date: existingPayment.payment_date,
+            payment_date: existingPayment.payment_date.split('T')[0], // Convertir formato completo a solo fecha
             payment_type: existingPayment.payment_type,
             month: existingPayment.month,
             year: existingPayment.year,
