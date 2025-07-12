@@ -1,7 +1,10 @@
+// Necessary imports
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { testConnection } from './config/database.js';
+
+// Import all API route modules
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import productRoutes from './routes/products.js';
@@ -18,69 +21,69 @@ import blogRoutes from './routes/blog.js';
 import rssRoutes from './routes/rss.js';
 import cleaningDutyRoutes from './routes/cleaningDuty.js';
 import notificationRoutes from './routes/notifications.js';
+
 import fs from 'fs';
 import path from 'path';
 
-// Configurar variables de entorno
+// Configure environment variables
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-console.log('Server - Variables de entorno cargadas desde:', path.resolve(process.cwd(), '.env'));
-console.log('Server - JWT_SECRET está configurado:', !!process.env.JWT_SECRET);
+console.log('Server - Environment variables loaded from:', path.resolve(process.cwd(), '.env'));
+console.log('Server - JWT_SECRET is configured:', !!process.env.JWT_SECRET);
 
-// Crear la aplicación Express
+// Create the Express application
 const app = express();
 
-// Middleware
+// CORS Configuration
 app.use(cors({
-  origin: true, // Permite cualquier origen (en producción deberías restringirlo)
+  origin: '[https://clubmegaverse.com](https://clubmegaverse.com)', // IMPORTANT: Exact frontend domain
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true,
-  exposedHeaders: ['Content-Disposition'] // Útil para descargas
+  exposedHeaders: ['Content-Disposition']
 }));
+
+// Middleware to parse request bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Configuración para servir archivos estáticos
-// Servir desde la raíz /uploads
-app.use('/uploads', express.static('uploads'));
-// También servir desde /api/uploads para compatibilidad
-app.use('/api/uploads', express.static('uploads'));
-
-// Crear directorio para imágenes del blog si no existe
+// --- STATIC FILE SERVING (ONLY FOR UPLOADS) ---
+// Create directory for blog images if it doesn't exist
 const blogImagesDir = path.join(process.cwd(), 'uploads', 'blog');
 if (!fs.existsSync(blogImagesDir)) {
-  console.log(`Creando directorio para imágenes del blog: ${blogImagesDir}`);
+  console.log(`Creating directory for blog images: ${blogImagesDir}`);
   fs.mkdirSync(blogImagesDir, { recursive: true });
 } else {
-  console.log(`Directorio para imágenes del blog ya existe: ${blogImagesDir}`);
+  console.log(`Blog images directory already exists: ${blogImagesDir}`);
 }
-// Servir archivos estáticos desde public
-app.use(express.static('public'));
-// También hacer accesibles los archivos de public desde /api
-app.use('/api', express.static('public'));
-console.log(`Sirviendo archivos estáticos desde: 
-  - ${process.cwd()}/uploads (accesible desde /uploads y /api/uploads)
-  - ${process.cwd()}/public (accesible desde / y /api)`);
 
-// Asegurar que existan los directorios necesarios
+// Serve static files from 'uploads' directory
+// Nginx is configured to handle /uploads/ directly, but this serves as a fallback or for direct backend access
+app.use('/uploads', express.static('uploads'));
+app.use('/api/uploads', express.static('uploads')); // For compatibility
+
+console.log(`Serving static files from: ${process.cwd()}/uploads (accessible from /uploads and /api/uploads)`);
+
+// Ensure necessary directories exist
 const avatarsDir = path.join(process.cwd(), 'uploads', 'avatars');
 if (!fs.existsSync(avatarsDir)) {
-  console.log(`Creando directorio para avatares: ${avatarsDir}`);
+  console.log(`Creating directory for avatars: ${avatarsDir}`);
   fs.mkdirSync(avatarsDir, { recursive: true });
 } else {
-  console.log(`Directorio para avatares ya existe: ${avatarsDir}`);
+  console.log(`Avatars directory already exists: ${avatarsDir}`);
 }
 
-// Crear directorio para documentos si no existe
 const documentsDir = path.join(process.cwd(), 'uploads', 'documents');
 if (!fs.existsSync(documentsDir)) {
-  console.log(`Creando directorio para documentos: ${documentsDir}`);
+  console.log(`Creating directory for documents: ${documentsDir}`);
   fs.mkdirSync(documentsDir, { recursive: true });
 } else {
-  console.log(`Directorio para documentos ya existe: ${documentsDir}`);
+  console.log(`Documents directory already exists: ${documentsDir}`);
 }
 
-// Comprobar conexión a la base de datos
+// Check database connection
 testConnection();
 
-// Rutas API
+// --- API ROUTES ---
+// Mount all your API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
@@ -98,29 +101,30 @@ app.use('/api/rss', rssRoutes);
 app.use('/api/cleaning-duty', cleaningDutyRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Ruta de prueba
+// Test route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'API funcionando correctamente' });
 });
 
-// Manejo de rutas no encontradas
+// Handle not found routes (for API only)
+// This middleware runs if no defined API routes match the request.
 app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Ruta no encontrada' });
+  res.status(404).json({ error: 'Ruta no encontrada 2' }); // This message should only appear for non-existent API routes
 });
 
-// Manejo global de errores
+// Global error handling
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('Error on server:', err.stack || err.message);
   res.status(err.status || 500).json({
-    error: err.message || 'Error interno del servidor'
+    error: err.message || 'Internal server error',
   });
 });
 
-// Iniciar el servidor
-const PORT = 8090; // Puerto fijo para desarrollo
-delete process.env.PORT; // Asegurarse de que no haya variable de entorno que interfiera
+// Start the server
+const PORT = process.env.PORT || 3000; // Use port from environment variable or 3000 by default
 app.listen(PORT, () => {
-  console.log(`Servidor iniciado en el puerto ${PORT}`);
+  console.log(`Server started on port ${PORT}`);
 });
 
+// Export the app for PM2
 export default app;

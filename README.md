@@ -16,8 +16,16 @@ MegaVerse es una aplicación web para la gestión de mesas de juego, reservas y 
 
 ## Documentación
 
+- [Guía de despliegue en GitHub](./docs/despliegue-github.md)
+- [Solución de problemas CORS](./docs/solucion-problemas-cors.md)
 - [Solución para problemas de zonas horarias en reservas](./docs/timezone-fix.md)
 - [Implementación de react-big-calendar](./docs/react-big-calendar.md)
+
+## Herramientas de utilidad
+
+- `fix-cors-settings.sh`: Script para diagnosticar y corregir problemas de CORS en el servidor
+- `deploy.ps1`: Script PowerShell para despliegue en Windows
+- `deploy.sh`: Script para despliegue en sistemas Linux/Unix
 
 ## Configuración inicial
 

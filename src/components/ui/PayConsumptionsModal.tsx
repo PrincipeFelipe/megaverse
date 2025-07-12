@@ -31,17 +31,15 @@ export const PayConsumptionsModal: React.FC<PayConsumptionsModalProps> = ({
   
   // Definir fetchDebtInfo con useCallback para evitar problemas de dependencia
   const fetchDebtInfo = useCallback(async () => {
-    if (isOpen && user && !rejectedPayment) {      try {
+    if (isOpen && user && !rejectedPayment) {
+      try {
         setLoading(true);
         const debtInfo = await consumptionPaymentsService.getUserDebt();
         console.log('Información de deuda obtenida en modal:', debtInfo);
         
-        // Asegurar que currentDebt sea un número
-        const debt = typeof debtInfo.currentDebt === 'number' 
-          ? debtInfo.currentDebt 
-          : debtInfo.currentDebt 
-            ? Number(debtInfo.currentDebt) 
-            : 0;
+        // La normalización ya debería estar hecha en el servicio, pero aseguramos aquí también
+        const debt = typeof debtInfo.currentDebt === 'number' ? 
+          debtInfo.currentDebt : 0;
         
         console.log('Deuda normalizada en modal:', debt);
         setCurrentDebt(debt);

@@ -43,5 +43,6 @@ export {
   Download,
   Search,
   Upload,
-  Phone
+  Phone,
+  Menu
 } from 'lucide-react';

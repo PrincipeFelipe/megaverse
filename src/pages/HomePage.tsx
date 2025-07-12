@@ -43,7 +43,7 @@ export const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-megaverse-gradient-dark">
       {/* Hero Section */}
-      <section className="relative px-4 py-20 sm:px-6 lg:px-8">
+      <section className="relative px-4 py-12 sm:py-16 md:py-20 sm:px-6 lg:px-8 min-h-[calc(100vh-64px)] flex items-center">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -55,21 +55,21 @@ export const HomePage: React.FC = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="flex justify-center mb-8"
+              className="flex justify-center mb-6 md:mb-8"
             >
-              <div className="p-4 bg-dark-800/50 backdrop-blur-lg shadow-xl rounded-full border border-primary-500/50">
-                <img src="/images/logo.svg" alt="Megaverse Logo" className="w-20 h-20" />
+              <div className="p-3 md:p-4 bg-dark-800/80 backdrop-blur-lg shadow-xl rounded-full border border-primary-500/50">
+                <img src="/images/logo.svg" alt="Megaverse Logo" className="w-16 md:w-20 h-16 md:h-20" />
               </div>
             </motion.div>
             
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 relative z-10">
               Bienvenido a{' '}
               <span className="text-megaverse-gradient">
                 MEGAVERSE
               </span>
             </h1>
             
-            <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
+            <p className="text-lg md:text-xl text-gray-300 mb-8 max-w-3xl mx-auto bg-dark-900/30 md:bg-transparent backdrop-blur-md md:backdrop-blur-none py-2 px-4 md:p-0 rounded-lg relative z-10">
               La asociación de ocio definitiva para los amantes de los juegos de mesa, wargames y especialmente Warhammer 40.000. 
               Únete a nuestra comunidad y vive experiencias épicas.
             </p>
@@ -100,7 +100,8 @@ export const HomePage: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Animated background elements */}          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none hidden md:block">
           <motion.div
             animate={{ 
               rotate: 360,
@@ -150,26 +151,32 @@ export const HomePage: React.FC = () => {
             className="absolute bottom-40 left-20 w-36 h-36 border border-secondary-400/20 rounded-full backdrop-blur-sm"
           />
         </div>
+        
+        {/* Fondo estático simplificado para dispositivos móviles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none md:hidden">
+          <div className="absolute top-20 left-10 w-24 h-24 border-2 border-primary-400/20 rounded-full"></div>
+          <div className="absolute bottom-20 right-10 w-24 h-24 border-2 border-secondary-300/20 rounded-full"></div>
+        </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-16 md:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center mb-10 md:mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4 relative z-10">
               ¿Por qué elegir MEGAVERSE?
             </h2>
-            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+            <p className="text-gray-300 text-base md:text-lg max-w-2xl mx-auto bg-dark-900/30 md:bg-transparent py-2 px-4 md:p-0 rounded-lg">
               Ofrecemos la mejor experiencia gaming con instalaciones de primera y una comunidad increíble.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -177,14 +184,14 @@ export const HomePage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
-                <Card hover className="p-6 h-full text-center">
-                  <div className="text-primary-400 mb-4 flex justify-center">
+                <Card hover className="p-4 md:p-6 h-full text-center">
+                  <div className="text-primary-400 mb-3 md:mb-4 flex justify-center">
                     {feature.icon}
                   </div>
-                  <h3 className="text-xl font-semibold text-dark-700 dark:text-secondary-300 mb-3">
+                  <h3 className="text-lg md:text-xl font-semibold text-dark-700 dark:text-secondary-300 mb-2 md:mb-3">
                     {feature.title}
                   </h3>
-                  <p className="text-dark-500 dark:text-gray-400">
+                  <p className="text-dark-500 dark:text-gray-400 text-sm md:text-base">
                     {feature.description}
                   </p>
                 </Card>
@@ -197,19 +204,19 @@ export const HomePage: React.FC = () => {
       {/* Stats Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-dark-800/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
             {stats.map((stat, index) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, scale: 0.8 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="text-center p-8 rounded-xl bg-dark-700/50 backdrop-blur-sm border border-dark-600/50 shadow-lg"
+                className="text-center p-4 md:p-8 rounded-xl bg-dark-700/80 md:bg-dark-700/50 backdrop-blur-none md:backdrop-blur-sm border border-dark-600/50 shadow-lg"
               >
-                <div className="text-4xl md:text-5xl font-bold text-megaverse-gradient mb-2">
+                <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-megaverse-gradient mb-1 md:mb-2">
                   {stat.number}
                 </div>
-                <div className="text-secondary-300 font-medium">
+                <div className="text-secondary-300 font-medium text-sm md:text-base">
                   {stat.label}
                 </div>
               </motion.div>
@@ -220,30 +227,30 @@ export const HomePage: React.FC = () => {
 
       {/* CTA Section - Solo visible para usuarios no logueados */}
       {!isLoggedIn && (
-        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-megaverse-gradient-soft">
+        <section className="py-16 md:py-20 px-4 sm:px-6 lg:px-8 bg-megaverse-gradient-soft">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="p-10 rounded-2xl bg-dark-800/70 backdrop-blur-lg border border-primary-500/30 shadow-xl"
+              className="p-6 md:p-10 rounded-2xl bg-dark-800/90 md:bg-dark-800/70 backdrop-blur-none md:backdrop-blur-lg border border-primary-500/30 shadow-xl"
             >
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4 md:mb-6">
                 ¿Listo para la <span className="text-megaverse-gradient">batalla</span>?
               </h2>
-              <p className="text-secondary-300 text-lg mb-8">
+              <p className="text-secondary-300 text-base md:text-lg mb-6 md:mb-8">
                 Únete a MEGAVERSE y forma parte de la mejor comunidad gaming. 
                 Reserva tu primera mesa y comienza tu aventura épica.
               </p>
               <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <Link to="/auth">
-                  <Button size="lg" className="min-w-[180px] shadow-lg">
+                  <Button size="lg" className="w-full sm:min-w-[180px] shadow-lg">
                     <Shield className="w-5 h-5 mr-2" />
                     Comenzar Ahora
                   </Button>
                 </Link>
-                <Link to="/about">
-                  <Button size="lg" variant="outline" className="min-w-[180px] shadow-lg bg-dark-800/50 backdrop-blur-sm hover:bg-dark-700">
+                <Link to="/about" className="w-full sm:w-auto">
+                  <Button size="lg" variant="outline" className="w-full sm:min-w-[180px] shadow-lg bg-dark-800/80 backdrop-blur-sm hover:bg-dark-700">
                     <Info className="w-5 h-5 mr-2" />
                     Conócenos
                   </Button>

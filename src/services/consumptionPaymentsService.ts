@@ -50,6 +50,18 @@ export interface UnpaidConsumptionsResponse {
   };
 }
 
+export interface DebtTotals {
+  unpaid: number;
+  pendingApproval: number;
+  total: number;
+}
+
+export interface DebtInfoResponse {
+  balance?: number | string;
+  currentDebt: number | string | DebtTotals;
+  paymentHistory: ConsumptionPayment[];
+}
+
 export interface DebtInfo {
   currentDebt: number;
   paymentHistory: ConsumptionPayment[];
@@ -96,9 +108,30 @@ export const consumptionPaymentsService = {  // Obtener la deuda actual del usua
       throw new Error(error.error || 'Error al obtener la deuda del usuario');
     }
     
-    const data = await response.json();
+    const data = await response.json() as DebtInfoResponse;
     console.log('Respuesta de API de deuda (servicio):', data);
-    return data;
+    
+    // Normalizar la estructura de la respuesta
+    let currentDebt = 0;
+    
+    if (typeof data.currentDebt === 'number') {
+      currentDebt = data.currentDebt;
+    } else if (typeof data.currentDebt === 'string' && !isNaN(parseFloat(data.currentDebt))) {
+      currentDebt = parseFloat(data.currentDebt);
+    } else if (data.currentDebt && typeof data.currentDebt === 'object' && 'total' in data.currentDebt) {
+      // Si es un objeto como {unpaid: X, pendingApproval: Y, total: Z}
+      currentDebt = typeof data.currentDebt.total === 'number' ? 
+        data.currentDebt.total : 
+        parseFloat(String(data.currentDebt.total) || '0');
+    }
+    
+    const normalizedData: DebtInfo = {
+      currentDebt: currentDebt,
+      paymentHistory: data.paymentHistory || []
+    };
+    
+    console.log('Datos de deuda normalizados:', normalizedData);
+    return normalizedData;
   },
     // Registrar un nuevo pago de consumiciones
   createPayment: async (paymentData: {

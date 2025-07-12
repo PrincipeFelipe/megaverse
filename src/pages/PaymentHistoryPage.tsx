@@ -52,7 +52,7 @@ export function PaymentHistoryPage() {
     page: 1
   });  // Función auxiliar para garantizar que la deuda siempre sea un número
   const ensureDebtIsNumber = (data: { 
-    currentDebt?: number | string | null; 
+    currentDebt?: number | string | object | null; 
     paymentHistory?: ConsumptionPayment[]; 
   } | null | undefined): { 
     currentDebt: number; 
@@ -60,9 +60,22 @@ export function PaymentHistoryPage() {
   } => {
     if (!data) return { currentDebt: 0, paymentHistory: [] };
     
+    let currentDebt = 0;
+    
+    if (typeof data.currentDebt === 'number') {
+      currentDebt = data.currentDebt;
+    } else if (typeof data.currentDebt === 'string' && !isNaN(parseFloat(data.currentDebt))) {
+      currentDebt = parseFloat(data.currentDebt);
+    } else if (data.currentDebt && typeof data.currentDebt === 'object') {
+      // Si es un objeto como {unpaid: X, pendingApproval: Y, total: Z}
+      const debtObj = data.currentDebt as { total?: number | string };
+      currentDebt = typeof debtObj.total === 'number' ? 
+        debtObj.total : 
+        parseFloat(String(debtObj.total) || '0');
+    }
+    
     return {
-      currentDebt: typeof data.currentDebt === 'number' ? data.currentDebt : 
-                  data.currentDebt ? Number(data.currentDebt) : 0,
+      currentDebt: currentDebt,
       paymentHistory: Array.isArray(data.paymentHistory) ? data.paymentHistory : []
     };
   };

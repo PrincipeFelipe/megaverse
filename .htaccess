@@ -1,0 +1,25 @@
+RewriteEngine On
+
+# Redirigir /api/ al backend Node.js que corre en el puerto 3000
+RewriteRule ^api/(.*)$ http://localhost:3000/$1 [P,L]
+
+# Servir archivos estáticos de uploads desde /api/uploads
+RewriteRule ^uploads/(.*)$ /api/uploads/$1 [L]
+
+# Todas las demás rutas van al frontend (SPA)
+# Esto permite que React Router maneje las rutas del lado del cliente
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteRule ^(.*)$ /index.html [L]
+
+# Headers de seguridad
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+
+# Cache para archivos estáticos
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 year"
+</FilesMatch>

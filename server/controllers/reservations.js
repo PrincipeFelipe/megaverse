@@ -92,7 +92,23 @@ export const createReservation = async (req, res) => {
   } = req.body;
   const userId = req.user.id;
   
+  console.log('\n=== NUEVA SOLICITUD DE RESERVA ===');
+  console.log('Datos recibidos del cliente:');
+  console.log({
+    tableId,
+    startTime,
+    endTime,
+    durationHours,
+    numMembers,
+    numGuests,
+    allDay,
+    reason,
+    userId
+  });
+  console.log(`Tipo de datos: startTime (${typeof startTime}), endTime (${typeof endTime}), durationHours (${typeof durationHours})`);
+  
   if (!tableId || !startTime || !endTime) {
+    console.log('Error: Faltan campos requeridos');
     return res.status(400).json({ error: 'Se requieren todos los campos básicos (mesa, hora inicio, hora fin)' });
   }
   
@@ -110,16 +126,40 @@ export const createReservation = async (req, res) => {
       requires_approval_for_all_day: true
     };
     
+    console.log('Configuración de reservas:', config);
+    
     // Verificar que la mesa existe
     const [tables] = await connection.query('SELECT * FROM tables WHERE id = ?', [tableId]);
     
     if (tables.length === 0) {
       connection.release();
+      console.log('Error: Mesa no encontrada');
       return res.status(404).json({ error: 'Mesa no encontrada' });
     }
-      // Verificar duración máxima según configuración
-    const startDate = new Date(startTime);
-    const endDate = new Date(endTime);
+    
+    console.log('Mesa encontrada:', tables[0].name);
+      
+    // Verificar duración máxima según configuración
+    let startDate, endDate;
+    
+    try {
+      startDate = new Date(startTime);
+      endDate = new Date(endTime);
+      
+      console.log('Fechas parseadas correctamente:');
+      console.log(`- startDate: ${startDate} (válida: ${!isNaN(startDate.getTime())})`);
+      console.log(`- endDate: ${endDate} (válida: ${!isNaN(endDate.getTime())})`);
+    } catch (dateError) {
+      connection.release();
+      console.error('Error al parsear fechas:', dateError);
+      return res.status(400).json({ error: 'Formato de fechas inválido. Asegúrate de enviar fechas ISO válidas.' });
+    }
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      connection.release();
+      console.error('Error: Fechas inválidas después de parseo');
+      return res.status(400).json({ error: 'Las fechas proporcionadas no son válidas' });
+    }
     
     console.log("Datos recibidos:");
     console.log(`- startTime: ${startTime}`);
@@ -133,16 +173,22 @@ export const createReservation = async (req, res) => {
     const durationInHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
     
     console.log(`- Duración calculada: ${durationInHours} horas`);
+    console.log(`- Duración proporcionada: ${durationHours} horas (tipo: ${typeof durationHours})`);
+    
+    // Si durationHours es string, convertir a número
+    const parsedDurationHours = typeof durationHours === 'string' ? parseFloat(durationHours) : durationHours;
     
     // Verificar que las fechas no estén invertidas
     if (startDate >= endDate) {
       connection.release();
+      console.log('Error: Fechas invertidas');
       return res.status(400).json({ error: 'La hora de inicio debe ser anterior a la hora de fin' });
     }
     
-    // Verificar que la duración es consistente
-    if (Math.abs(durationInHours - durationHours) > 0.1) {
-      console.log("Advertencia: La duración indicada no coincide con la duración calculada");
+    // Verificar que la duración es consistente (con mayor tolerancia)
+    if (Math.abs(durationInHours - parsedDurationHours) > 0.2) {
+      console.log(`Advertencia: La duración indicada (${parsedDurationHours}) no coincide con la calculada (${durationInHours})`);
+      // Solo log, no error - usaremos la duración calculada
     }
     
     // Verificar fecha pasada
@@ -233,13 +279,36 @@ export const createReservation = async (req, res) => {
     }
     
     // Crear la reserva con los nuevos campos
-    const [result] = await connection.query(
-      `INSERT INTO reservations 
-       (user_id, table_id, start_time, end_time, duration_hours, num_members, num_guests, all_day, reason, approved) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, tableId, startTime, endTime, durationHours || 1, 
-       numMembers || 1, numGuests || 0, allDay || false, reason || null, approved]
-    );
+    // Normalizar valores para la inserción SQL
+    const normalizedDurationHours = typeof durationHours === 'string' ? parseFloat(durationHours) : (durationHours || durationInHours || 1);
+    const normalizedNumMembers = typeof numMembers === 'string' ? parseInt(numMembers, 10) : (numMembers || 1);
+    const normalizedNumGuests = typeof numGuests === 'string' ? parseInt(numGuests, 10) : (numGuests || 0);
+    const normalizedAllDay = typeof allDay === 'string' ? allDay === 'true' : Boolean(allDay || false);
+
+    console.log('Valores normalizados para SQL:');
+    console.log({
+      durationHours: normalizedDurationHours,
+      numMembers: normalizedNumMembers,
+      numGuests: normalizedNumGuests,
+      allDay: normalizedAllDay,
+      approved
+    });
+    
+    try {
+      const [result] = await connection.query(
+        `INSERT INTO reservations 
+         (user_id, table_id, start_time, end_time, duration_hours, num_members, num_guests, all_day, reason, approved) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, tableId, startTime, endTime, normalizedDurationHours, 
+         normalizedNumMembers, normalizedNumGuests, normalizedAllDay, reason || null, approved]
+      );
+      
+      console.log('Reserva creada con éxito. ID:', result.insertId);
+    } catch (sqlError) {
+      console.error('Error SQL al insertar la reserva:', sqlError);
+      connection.release();
+      return res.status(500).json({ error: 'Error al crear la reserva en la base de datos' });
+    }
     
     // Obtener la reserva creada
     const [newReservation] = await connection.query(
@@ -261,6 +330,7 @@ export const createReservation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al crear reserva:', error);
+    if (connection) connection.release();
     return res.status(500).json({ error: 'Error del servidor al crear reserva' });
   }
 };

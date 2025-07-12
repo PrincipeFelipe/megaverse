@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:prod": "vite build --mode production",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "bash deploy.sh",
+    "backup": "bash backup.sh"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.17",

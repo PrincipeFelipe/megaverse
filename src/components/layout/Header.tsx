@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
-import { User, LogOut, Settings, CreditCard } from '../../utils/icons';
+import { User, LogOut, Settings, CreditCard, Menu, X, Calendar, ShoppingCart } from '../../utils/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
@@ -12,7 +12,9 @@ export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const forceUpdate = useForceUpdate();
   
   // Debug: loggar cuando cambie el usuario
@@ -39,13 +41,17 @@ export const Header: React.FC = () => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
+      
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+      }
     }
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userMenuRef]);
+  }, [userMenuRef, mobileMenuRef]);
 
   // Filtrar las rutas de navegación basadas en si el usuario está autenticado o no
   const filteredNavigation = navigation.filter(item => 
@@ -68,7 +74,22 @@ export const Header: React.FC = () => {
             <span className="text-xl font-bold text-white">MEGAVERSE</span>
           </Link>
 
-          {/* Navigation */}
+          {/* Botón de menú móvil */}
+          <div className="md:hidden">
+            <button
+              type="button"
+              className="text-gray-300 hover:text-white focus:outline-none"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
+
+          {/* Navegación de escritorio */}
           <nav className="hidden md:flex space-x-8">
             {filteredNavigation.map((item) => (
               <Link
@@ -85,8 +106,8 @@ export const Header: React.FC = () => {
             ))}
           </nav>
 
-          {/* User Menu */}
-          <div className="flex items-center space-x-4">
+          {/* User Menu de escritorio */}
+          <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-3">
                 {/* Notificaciones */}
@@ -188,6 +209,187 @@ export const Header: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Menú móvil */}
+      <div
+        ref={mobileMenuRef}
+        className={`${
+          mobileMenuOpen ? 'block' : 'hidden'
+        } md:hidden fixed inset-0 z-40 bg-dark-900 bg-opacity-75`}
+      >
+        <div 
+          className={`fixed inset-y-0 right-0 max-w-xs w-full bg-dark-800 shadow-lg overflow-y-auto ${
+            mobileMenuOpen ? 'mobile-menu-slide-in' : 'mobile-menu-slide-out'
+          }`}
+        >
+          <div className="px-4 pt-5 pb-2 flex justify-between">
+            <div className="flex items-center">
+              <img src="/images/logo.svg" alt="Megaverse Logo" className="w-6 h-6 mr-2" />
+              <span className="text-lg font-bold text-white">MEGAVERSE</span>
+            </div>
+            <button
+              type="button"
+              className="text-gray-300 hover:text-white"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          {/* Navegación móvil */}
+          <div className="mt-4 px-2 space-y-1">
+            {filteredNavigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  isActive(item.href)
+                    ? 'text-primary-400 bg-dark-700'
+                    : 'text-gray-300 hover:text-white hover:bg-dark-700'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </div>
+
+          {/* Enlaces principales para usuarios autenticados */}
+          {user && (
+            <div className="mt-4 px-2 space-y-1 border-t border-dark-600 pt-4">
+              <Link
+                to="/reservations"
+                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  isActive('/reservations')
+                    ? 'text-primary-400 bg-dark-700'
+                    : 'text-gray-300 hover:text-white hover:bg-dark-700'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <div className="flex items-center">
+                  <Calendar className="w-5 h-5 mr-3" />
+                  Reservas
+                </div>
+              </Link>
+              <Link
+                to="/products"
+                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  isActive('/products')
+                    ? 'text-primary-400 bg-dark-700'
+                    : 'text-gray-300 hover:text-white hover:bg-dark-700'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <div className="flex items-center">
+                  <ShoppingCart className="w-5 h-5 mr-3" />
+                  Productos
+                </div>
+              </Link>
+            </div>
+          )}
+
+          {/* Menú de usuario móvil */}
+          {user ? (
+            <div className="mt-6 px-4 py-4 border-t border-dark-600">
+              <div className="flex items-center mb-4">
+                {user.avatar_url ? (
+                  <div className="avatar avatar-header">
+                    <img 
+                      src={getAvatarUrl(user.avatar_url, undefined, true) || undefined}
+                      alt="Avatar" 
+                      onError={(e) => handleAvatarError(e.currentTarget)}
+                    />
+                  </div>
+                ) : (
+                  <div className="avatar avatar-header avatar-placeholder">
+                    <User className="w-4 h-4 text-gray-400" />
+                  </div>
+                )}
+                <div className="ml-3">
+                  <div className="text-base font-medium text-white">{user.name}</div>
+                  <div className="text-sm text-gray-400">{user.email}</div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Link
+                  to="/dashboard"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <div className="flex items-center">
+                    <User className="w-5 h-5 mr-3" />
+                    Dashboard
+                  </div>
+                </Link>
+                <Link
+                  to="/profile"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <div className="flex items-center">
+                    <User className="w-5 h-5 mr-3" />
+                    Mi Perfil
+                  </div>
+                </Link>
+                <Link
+                  to="/payments/history"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <div className="flex items-center">
+                    <CreditCard className="w-5 h-5 mr-3" />
+                    Historial de Pagos
+                  </div>
+                </Link>
+                <Link
+                  to="/consumption-payments"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <div className="flex items-center">
+                    <CreditCard className="w-5 h-5 mr-3" />
+                    Mis Consumos
+                  </div>
+                </Link>
+                {user.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <div className="flex items-center">
+                      <Settings className="w-5 h-5 mr-3" />
+                      Panel Admin
+                    </div>
+                  </Link>
+                )}
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"
+                >
+                  <div className="flex items-center">
+                    <LogOut className="w-5 h-5 mr-3" />
+                    Salir
+                  </div>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 px-4 py-4 border-t border-dark-600">
+              <Link
+                to="/auth"
+                className="block w-full py-2 px-3 text-center rounded-md text-white bg-primary-600 hover:bg-primary-700 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Iniciar Sesión
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </motion.header>
