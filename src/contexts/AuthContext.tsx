@@ -68,6 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
+    
+    // Redirección a la página principal
+    window.location.href = '/';
   };
 
   // Nueva función para actualizar el usuario
