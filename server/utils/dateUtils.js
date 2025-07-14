@@ -12,9 +12,50 @@ export const isValidISODate = (str) => {
   
   try {
     const date = new Date(str);
-    return date.toISOString() === str;
+    return !isNaN(date.getTime()) && date.toISOString() === str;
   } catch (e) {
     return false;
+  }
+};
+
+/**
+ * Verifica si una fecha es válida
+ * @param {string|Date} date - La fecha a verificar
+ * @returns {boolean} - True si es una fecha válida, false en caso contrario
+ */
+export const isValidDate = (date) => {
+  if (!date) return false;
+  
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return !isNaN(dateObj.getTime());
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
+ * Intenta parsear una fecha de forma segura
+ * @param {any} value - El valor a parsear como fecha
+ * @returns {Date|null} - La fecha parseada o null si es inválida
+ */
+export const safeParseDate = (value) => {
+  if (!value) return null;
+  
+  try {
+    // Si ya es una fecha, devolver directamente
+    if (value instanceof Date) {
+      return isValidDate(value) ? value : null;
+    }
+    
+    // Convertir a string si es necesario
+    const dateStr = String(value);
+    const date = new Date(dateStr);
+    
+    return isValidDate(date) ? date : null;
+  } catch (e) {
+    console.error(`Error parsing date ${value}:`, e);
+    return null;
   }
 };
 
@@ -26,6 +67,13 @@ export const isValidISODate = (str) => {
 export const logDateDetails = (label, date) => {
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    if (!isValidDate(dateObj)) {
+      console.log(`---------- ${label} ----------`);
+      console.log(`FECHA INVÁLIDA: ${date}`);
+      console.log(`--------------------------`);
+      return;
+    }
     
     console.log(`---------- ${label} ----------`);
     console.log(`ISO String: ${dateObj.toISOString()}`);

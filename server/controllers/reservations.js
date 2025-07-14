@@ -1,5 +1,5 @@
 import { pool } from '../config/database.js';
-import { isValidISODate, logDateDetails } from '../utils/dateUtils.js';
+import { isValidISODate, logDateDetails, isValidDate, safeParseDate } from '../utils/dateUtils.js';
 import { createNotification } from './notifications.js';
 
 export const getAllReservations = async (req, res) => {
@@ -80,258 +80,298 @@ export const getReservationById = async (req, res) => {
 };
 
 export const createReservation = async (req, res) => {
-  const { 
-    tableId, 
-    startTime, 
-    endTime, 
-    durationHours, 
-    numMembers, 
-    numGuests, 
-    allDay, 
-    reason 
-  } = req.body;
-  const userId = req.user.id;
-  
-  console.log('\n=== NUEVA SOLICITUD DE RESERVA ===');
-  console.log('Datos recibidos del cliente:');
-  console.log({
-    tableId,
-    startTime,
-    endTime,
-    durationHours,
-    numMembers,
-    numGuests,
-    allDay,
-    reason,
-    userId
-  });
-  console.log(`Tipo de datos: startTime (${typeof startTime}), endTime (${typeof endTime}), durationHours (${typeof durationHours})`);
-  
-  if (!tableId || !startTime || !endTime) {
-    console.log('Error: Faltan campos requeridos');
-    return res.status(400).json({ error: 'Se requieren todos los campos básicos (mesa, hora inicio, hora fin)' });
-  }
-  
   try {
+    const { 
+      tableId, 
+      startTime, 
+      endTime, 
+      durationHours, 
+      numMembers, 
+      numGuests, 
+      allDay, 
+      reason 
+    } = req.body;
+    const userId = req.user.id;
+    
+    console.log('\n=== NUEVA SOLICITUD DE RESERVA ===');
+    console.log('Datos recibidos del cliente:');
+    console.log(JSON.stringify({
+      tableId,
+      startTime,
+      endTime,
+      durationHours,
+      numMembers,
+      numGuests,
+      allDay,
+      reason,
+      userId
+    }, null, 2));
+    
+    // 1. VALIDACIÓN BÁSICA DE DATOS REQUERIDOS
+    if (!tableId) {
+      return res.status(400).json({ error: 'Se requiere el ID de la mesa' });
+    }
+    
+    if (!startTime || !endTime) {
+      return res.status(400).json({ error: 'Se requieren las horas de inicio y fin' });
+    }
+    
+    // 2. ESTABLECER CONEXIÓN Y CARGAR CONFIGURACIÓN
     const connection = await pool.getConnection();
     
-    // Obtener la configuración de reservas
-    const [configResult] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');
-    const config = configResult.length > 0 ? configResult[0] : {
-      max_hours_per_reservation: 4,
-      max_reservations_per_user_per_day: 1,
-      min_hours_in_advance: 0,
-      allowed_start_time: '08:00',
-      allowed_end_time: '22:00',
-      requires_approval_for_all_day: true
-    };
-    
-    console.log('Configuración de reservas:', config);
-    
-    // Verificar que la mesa existe
-    const [tables] = await connection.query('SELECT * FROM tables WHERE id = ?', [tableId]);
-    
-    if (tables.length === 0) {
-      connection.release();
-      console.log('Error: Mesa no encontrada');
-      return res.status(404).json({ error: 'Mesa no encontrada' });
-    }
-    
-    console.log('Mesa encontrada:', tables[0].name);
-      
-    // Verificar duración máxima según configuración
-    let startDate, endDate;
-    
     try {
-      startDate = new Date(startTime);
-      endDate = new Date(endTime);
+      // Obtener la configuración de reservas
+      const [configResult] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');
+      const config = configResult.length > 0 ? configResult[0] : {
+        max_hours_per_reservation: 4,
+        max_reservations_per_user_per_day: 1,
+        min_hours_in_advance: 0,
+        allowed_start_time: '08:00',
+        allowed_end_time: '22:00',
+        requires_approval_for_all_day: true
+      };
       
-      console.log('Fechas parseadas correctamente:');
-      console.log(`- startDate: ${startDate} (válida: ${!isNaN(startDate.getTime())})`);
-      console.log(`- endDate: ${endDate} (válida: ${!isNaN(endDate.getTime())})`);
-    } catch (dateError) {
-      connection.release();
-      console.error('Error al parsear fechas:', dateError);
-      return res.status(400).json({ error: 'Formato de fechas inválido. Asegúrate de enviar fechas ISO válidas.' });
-    }
-    
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      connection.release();
-      console.error('Error: Fechas inválidas después de parseo');
-      return res.status(400).json({ error: 'Las fechas proporcionadas no son válidas' });
-    }
-    
-    console.log("Datos recibidos:");
-    console.log(`- startTime: ${startTime}`);
-    console.log(`- endTime: ${endTime}`);
-    console.log(`- durationHours: ${durationHours}`);
-    
-    // Registrar detalles completos de las fechas para depuración
-    logDateDetails("Start Date", startDate);
-    logDateDetails("End Date", endDate);
-    
-    const durationInHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-    
-    console.log(`- Duración calculada: ${durationInHours} horas`);
-    console.log(`- Duración proporcionada: ${durationHours} horas (tipo: ${typeof durationHours})`);
-    
-    // Si durationHours es string, convertir a número
-    const parsedDurationHours = typeof durationHours === 'string' ? parseFloat(durationHours) : durationHours;
-    
-    // Verificar que las fechas no estén invertidas
-    if (startDate >= endDate) {
-      connection.release();
-      console.log('Error: Fechas invertidas');
-      return res.status(400).json({ error: 'La hora de inicio debe ser anterior a la hora de fin' });
-    }
-    
-    // Verificar que la duración es consistente (con mayor tolerancia)
-    if (Math.abs(durationInHours - parsedDurationHours) > 0.2) {
-      console.log(`Advertencia: La duración indicada (${parsedDurationHours}) no coincide con la calculada (${durationInHours})`);
-      // Solo log, no error - usaremos la duración calculada
-    }
-    
-    // Verificar fecha pasada
-    const now = new Date();
-    if (startDate < now) {
-      connection.release();
-      return res.status(400).json({ error: 'No se pueden realizar reservas en fechas u horas pasadas' });
-    }
-    
-    // Verificar horas mínimas de antelación
-    if (config.min_hours_in_advance > 0) {
-      const hoursDiff = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-      if (hoursDiff < config.min_hours_in_advance) {
+      console.log('Configuración de reservas:', JSON.stringify(config, null, 2));
+      
+      // 3. VALIDAR QUE LA MESA EXISTE
+      const [tables] = await connection.query('SELECT * FROM tables WHERE id = ?', [tableId]);
+      
+      if (tables.length === 0) {
+        connection.release();
+        return res.status(404).json({ error: 'Mesa no encontrada' });
+      }
+      
+      console.log(`Mesa encontrada: ${tables[0].name} (ID: ${tables[0].id})`);
+      
+      // 4. PROCESAMIENTO Y VALIDACIÓN DE FECHAS
+      let startDate, endDate, durationInHours;
+      
+      try {
+        // Usar las nuevas utilidades para procesar las fechas de forma segura
+        startDate = safeParseDate(startTime);
+        endDate = safeParseDate(endTime);
+        
+        if (!startDate || !endDate) {
+          throw new Error('No se pudieron parsear las fechas correctamente');
+        }
+        
+        console.log('Fechas parseadas:');
+        console.log(`- startDate (original): ${startTime}`);
+        console.log(`- startDate (parseada): ${startDate.toISOString()}`);
+        console.log(`- endDate (original): ${endTime}`);
+        console.log(`- endDate (parseada): ${endDate.toISOString()}`);
+        
+        // Registrar información detallada para depuración
+        logDateDetails("Start Date (Details)", startDate);
+        logDateDetails("End Date (Details)", endDate);
+        
+        durationInHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        console.log(`- Duración calculada: ${durationInHours.toFixed(2)} horas`);
+      } catch (dateError) {
+        console.error('Error procesando fechas:', dateError);
         connection.release();
         return res.status(400).json({ 
-          error: `Las reservas deben realizarse con al menos ${config.min_hours_in_advance} horas de antelación` 
+          error: 'Error al procesar las fechas. Asegúrate de enviar fechas ISO válidas.',
+          details: dateError.message
         });
       }
-    }
+      
+      // 5. NORMALIZACIÓN DE VALORES
+      const normalizedValues = {
+        durationHours: typeof durationHours === 'string' ? parseFloat(durationHours) : (durationHours || durationInHours),
+        numMembers: typeof numMembers === 'string' ? parseInt(numMembers, 10) : (numMembers || 1),
+        numGuests: typeof numGuests === 'string' ? parseInt(numGuests, 10) : (numGuests || 0),
+        allDay: typeof allDay === 'string' ? (allDay === 'true') : Boolean(allDay)
+      };
+      
+      console.log('Valores normalizados:', JSON.stringify(normalizedValues, null, 2));
+      
+      // 6. VALIDACIONES DE REGLAS DE NEGOCIO
+      
+      // 6.1 Verificar que las fechas no estén invertidas
+      if (startDate >= endDate) {
+        connection.release();
+        return res.status(400).json({ error: 'La hora de inicio debe ser anterior a la hora de fin' });
+      }
+      
+      // 6.2 Verificar fecha pasada
+      const now = new Date();
+      if (startDate < now) {
+        connection.release();
+        return res.status(400).json({ error: 'No se pueden realizar reservas en fechas u horas pasadas' });
+      }
+      
+      // 6.3 Verificar horas mínimas de antelación
+      if (config.min_hours_in_advance > 0) {
+        const hoursDiff = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+        if (hoursDiff < config.min_hours_in_advance) {
+          connection.release();
+          return res.status(400).json({ 
+            error: `Las reservas deben realizarse con al menos ${config.min_hours_in_advance} horas de antelación` 
+          });
+        }
+      }
+      
+      // 6.4 Verificar duración máxima de la reserva
+      if (!normalizedValues.allDay && durationInHours > config.max_hours_per_reservation) {
+        connection.release();
+        return res.status(400).json({ 
+          error: `La reserva no puede durar más de ${config.max_hours_per_reservation} horas` 
+        });
+      }
+      // 7. VERIFICAR LÍMITE DIARIO DE RESERVAS POR USUARIO
+      if (config.max_reservations_per_user_per_day > 0) {
+        const startOfDay = new Date(startDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(startOfDay);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        
+        console.log(`Verificando límite diario para fecha: ${startDate.toISOString()}`);
+        console.log(`Rango de búsqueda: ${startOfDay.toISOString()} a ${endOfDay.toISOString()}`);
+        
+        const [userReservationsToday] = await connection.query(
+          `SELECT * FROM reservations 
+           WHERE user_id = ? 
+           AND status = 'active' 
+           AND start_time >= ?
+           AND start_time < ?`,
+          [userId, startOfDay.toISOString(), endOfDay.toISOString()]
+        );
+        
+        console.log(`Reservas encontradas hoy: ${userReservationsToday.length}`);
+        
+        if (userReservationsToday.length >= config.max_reservations_per_user_per_day) {
+          connection.release();
+          return res.status(400).json({ 
+            error: `Has alcanzado el límite de ${config.max_reservations_per_user_per_day} reservas por día` 
+          });
+        }
+        
+        // Si existen reservas previas para el mismo día, calcular horas ya reservadas
+        if (userReservationsToday.length > 0) {
+          const totalReservedHours = userReservationsToday.reduce((total, res) => {
+            const resStart = new Date(res.start_time);
+            const resEnd = new Date(res.end_time);
+            return total + ((resEnd.getTime() - resStart.getTime()) / (1000 * 60 * 60));
+          }, 0);
+          
+          console.log(`Usuario ${userId} ya tiene ${userReservationsToday.length} reservas hoy con un total de ${totalReservedHours.toFixed(1)} horas`);
+        }
+      }
+      
+      // 8. VERIFICAR DISPONIBILIDAD DE LA MESA
+      console.log(`Verificando disponibilidad de mesa ${tableId} entre ${startDate.toISOString()} y ${endDate.toISOString()}`);
+      
+      const [existingReservations] = await connection.query(
+        `SELECT * FROM reservations 
+         WHERE table_id = ? 
+         AND status = 'active' 
+         AND (
+           (start_time < ? AND end_time > ?) OR
+           (? >= start_time AND ? < end_time) OR
+           (start_time >= ? AND start_time < ?)
+         )`,
+        [tableId, endTime, startTime, startTime, startTime, startTime, endTime]
+      );
+      
+      if (existingReservations.length > 0) {
+        console.log(`Mesa ${tableId} ya está reservada. Conflictos:`, 
+                    existingReservations.map(r => `ID: ${r.id}, Inicio: ${r.start_time}, Fin: ${r.end_time}`));
+        connection.release();
+        return res.status(400).json({ error: 'La mesa ya está reservada en ese horario' });
+      }
+      
+      // 9. VERIFICAR SI REQUIERE APROBACIÓN
+      let approved = true;
+      if (normalizedValues.allDay && config.requires_approval_for_all_day && req.user.role !== 'admin') {
+        approved = false; // Requiere aprobación de admin
+        
+        if (!reason) {
+          connection.release();
+          return res.status(400).json({ error: 'Se requiere un motivo para reservas de todo el día' });
+        }
+      }
     
-    // Verificar duración máxima de la reserva
-    if (!allDay && durationInHours > config.max_hours_per_reservation) {
-      connection.release();
-      return res.status(400).json({ 
-        error: `La reserva no puede durar más de ${config.max_hours_per_reservation} horas` 
+      // 10. INSERCIÓN EN LA BASE DE DATOS
+      console.log('Procediendo a crear la reserva en la base de datos...');
+      
+      try {
+        // Preparar las fechas ISO para inserción, asegurando que sean strings válidos
+        const startTimeIso = startDate.toISOString();
+        const endTimeIso = endDate.toISOString();
+        
+        console.log('Fechas para inserción SQL:');
+        console.log(`- startTimeIso: ${startTimeIso}`);
+        console.log(`- endTimeIso: ${endTimeIso}`);
+        
+        // Insertar en la base de datos con valores normalizados
+        const [result] = await connection.query(
+          `INSERT INTO reservations 
+           (user_id, table_id, start_time, end_time, duration_hours, num_members, num_guests, all_day, reason, approved, status) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+          [
+            userId, 
+            tableId, 
+            startTimeIso,
+            endTimeIso, 
+            parseFloat(normalizedValues.durationHours) || durationInHours || 1, 
+            parseInt(normalizedValues.numMembers) || 1, 
+            parseInt(normalizedValues.numGuests) || 0, 
+            normalizedValues.allDay ? 1 : 0,  // Asegurar que sea 1 o 0 para MySQL
+            reason || null, 
+            approved ? 1 : 0  // Asegurar que sea 1 o 0 para MySQL
+          ]
+        );
+        
+        console.log(`Reserva creada con éxito. ID: ${result.insertId}`);
+        
+        // 11. OBTENER LA RESERVA CREADA
+        const [newReservation] = await connection.query(
+          `SELECT r.*, u.name as user_name, t.name as table_name 
+           FROM reservations r
+           JOIN users u ON r.user_id = u.id
+           JOIN tables t ON r.table_id = t.id
+           WHERE r.id = ?`,
+          [result.insertId]
+        );
+        
+        if (newReservation.length === 0) {
+          throw new Error('No se pudo recuperar la reserva recién creada');
+        }
+        
+        connection.release();
+        
+        // 12. ENVIAR RESPUESTA
+        return res.status(201).json({
+          message: normalizedValues.allDay && !approved ? 
+            'Reserva enviada para aprobación de un administrador' : 
+            'Reserva creada correctamente',
+          reservation: newReservation[0]
+        });
+        
+      } catch (sqlError) {
+        console.error('Error SQL al insertar/recuperar la reserva:', sqlError);
+        connection.release();
+        return res.status(500).json({ 
+          error: 'Error al crear la reserva en la base de datos',
+          details: sqlError.message 
+        });
+      }
+    } catch (error) {
+      console.error('Error al procesar reserva:', error);
+      if (connection) connection.release();
+      return res.status(500).json({ 
+        error: 'Error del servidor al crear reserva',
+        details: error.message 
       });
     }
-      // Verificar que el usuario no supere el límite diario de reservas
-    if (config.max_reservations_per_user_per_day > 0) {
-      const startOfDay = new Date(startDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setHours(23, 59, 59, 999);
-        const [userReservationsToday] = await connection.query(
-        `SELECT * FROM reservations 
-         WHERE user_id = ? 
-         AND status = 'active' 
-         AND start_time >= ?
-         AND start_time < ?`,
-        [userId, startOfDay.toISOString(), endOfDay.toISOString()]
-      );
-      
-      if (userReservationsToday.length >= config.max_reservations_per_user_per_day) {
-        connection.release();
-        return res.status(400).json({ 
-          error: `Has alcanzado el límite de ${config.max_reservations_per_user_per_day} reservas por día` 
-        });
-      }
-        // Si existen reservas previas para el mismo día, verificamos si hay restricciones adicionales
-      if (userReservationsToday.length > 0) {
-        // Para informar al usuario, calculamos las horas ya reservadas
-        const totalReservedHours = userReservationsToday.reduce((total, res) => {
-          const resStart = new Date(res.start_time);
-          const resEnd = new Date(res.end_time);
-          return total + ((resEnd.getTime() - resStart.getTime()) / (1000 * 60 * 60));
-        }, 0);
-        
-        // Loguear información sobre las reservas existentes para depuración
-        console.log(`Usuario ${userId} ya tiene ${userReservationsToday.length} reservas hoy con un total de ${totalReservedHours.toFixed(1)} horas`);
-      }
-    }    // Verificar que la mesa no está ya reservada en ese horario
-    const [existingReservations] = await connection.query(
-      `SELECT * FROM reservations 
-       WHERE table_id = ? 
-       AND status = 'active' 
-       AND (
-         (start_time < ? AND end_time > ?) OR
-         (? >= start_time AND ? < end_time) OR
-         (start_time >= ? AND end_time <= ?)
-       )`,
-      [tableId, endTime, startTime, startTime, startTime, startTime, endTime]
-    );
-    
-    if (existingReservations.length > 0) {
-      connection.release();
-      return res.status(400).json({ error: 'La mesa ya está reservada en ese horario' });
-    }
-      // Para reservas de todo el día, comprobar si requiere aprobación según configuración
-    let approved = true;
-    if (allDay && config.requires_approval_for_all_day && req.user.role !== 'admin') {
-      approved = false; // Requiere aprobación de admin
-      
-      if (!reason) {
-        connection.release();
-        return res.status(400).json({ error: 'Se requiere un motivo para reservas de todo el día' });
-      }
-    }
-    
-    // Crear la reserva con los nuevos campos
-    // Normalizar valores para la inserción SQL
-    const normalizedDurationHours = typeof durationHours === 'string' ? parseFloat(durationHours) : (durationHours || durationInHours || 1);
-    const normalizedNumMembers = typeof numMembers === 'string' ? parseInt(numMembers, 10) : (numMembers || 1);
-    const normalizedNumGuests = typeof numGuests === 'string' ? parseInt(numGuests, 10) : (numGuests || 0);
-    const normalizedAllDay = typeof allDay === 'string' ? allDay === 'true' : Boolean(allDay || false);
-
-    console.log('Valores normalizados para SQL:');
-    console.log({
-      durationHours: normalizedDurationHours,
-      numMembers: normalizedNumMembers,
-      numGuests: normalizedNumGuests,
-      allDay: normalizedAllDay,
-      approved
+  } catch (globalError) {
+    console.error('Error crítico al crear reserva:', globalError);
+    return res.status(500).json({ 
+      error: 'Error del servidor al procesar la solicitud',
+      details: globalError.message
     });
-    
-    try {
-      const [result] = await connection.query(
-        `INSERT INTO reservations 
-         (user_id, table_id, start_time, end_time, duration_hours, num_members, num_guests, all_day, reason, approved) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [userId, tableId, startTime, endTime, normalizedDurationHours, 
-         normalizedNumMembers, normalizedNumGuests, normalizedAllDay, reason || null, approved]
-      );
-      
-      console.log('Reserva creada con éxito. ID:', result.insertId);
-    } catch (sqlError) {
-      console.error('Error SQL al insertar la reserva:', sqlError);
-      connection.release();
-      return res.status(500).json({ error: 'Error al crear la reserva en la base de datos' });
-    }
-    
-    // Obtener la reserva creada
-    const [newReservation] = await connection.query(
-      `SELECT r.*, u.name as user_name, t.name as table_name 
-       FROM reservations r
-       JOIN users u ON r.user_id = u.id
-       JOIN tables t ON r.table_id = t.id
-       WHERE r.id = ?`,
-      [result.insertId]
-    );
-    
-    connection.release();
-    
-    return res.status(201).json({
-      message: allDay && !approved ? 
-        'Reserva enviada para aprobación de un administrador' : 
-        'Reserva creada correctamente',
-      reservation: newReservation[0]
-    });
-  } catch (error) {
-    console.error('Error al crear reserva:', error);
-    if (connection) connection.release();
-    return res.status(500).json({ error: 'Error del servidor al crear reserva' });
   }
 };
 
