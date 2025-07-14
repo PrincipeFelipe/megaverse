@@ -17,7 +17,37 @@ import { Reservation, Table, ReservationConfig } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { showError, showConfirm } from '../../utils/alerts';
 import './calendar-styles.css'; // Estilos personalizados existentes
-import './fullcalendar-styles.css'; // Nuevos estilos para FullCalendar
+import './fullcalendar-styles.css'; // Estilos para FullCalendar
+import './fullcalendar-responsive.css'; // Nuevos estilos responsive para móviles y tablets
+
+// Hook personalizado para detectar el tamaño de la ventana
+const useWindowSize = () => {
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
+  });
+  
+  useEffect(() => {
+    // Handler para llamar en resize
+    function handleResize() {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    }
+    
+    // Añadir event listener
+    window.addEventListener("resize", handleResize);
+    
+    // Llamar al handler para establecer el tamaño inicial
+    handleResize();
+    
+    // Limpiar event listener
+    return () => window.removeEventListener("resize", handleResize);
+  }, []); // Array vacío significa que esto se ejecutará una vez
+  
+  return windowSize;
+};
 
 // Extender la interfaz Window para incluir la configuración de reservas
 declare global {
@@ -157,7 +187,7 @@ const TableSelectionPopover: React.FC<TableSelectionPopoverProps> = ({
   );
 };
 
-const Calendar7Days: React.FC<CalendarProps> = ({
+export const Calendar7Days: React.FC<CalendarProps> = ({
   reservations,
   tables,
   onSelectSlot,
@@ -168,34 +198,48 @@ const Calendar7Days: React.FC<CalendarProps> = ({
   const [selectedTimeInfo, setSelectedTimeInfo] = useState<{ start: Date, end: Date } | null>(null);
   const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
   const calendarRef = useRef<FullCalendar>(null);
+  const [currentView, setCurrentView] = useState<string>('timeGridWeek');
+  const [isMobileView, setIsMobileView] = useState<boolean>(false);
   
   // Estados para las horas de inicio y fin del calendario
   const [minTime, setMinTime] = useState<string>(getMinTime());
   const [maxTime, setMaxTime] = useState<string>(getMaxTime());
   const [initialDate, setInitialDate] = useState<Date>(new Date());
   
-  // Actualizar las horas de inicio y fin cuando cambie la configuración
+  // Función para detectar si estamos en una vista móvil
+  const checkIfMobile = (): boolean => {
+    return window.innerWidth < 768; // Consideramos móvil por debajo de 768px
+  };
+  
+  // Actualiza la vista basada en el tamaño de la pantalla
+  const updateCalendarView = () => {
+    const isMobile = checkIfMobile();
+    setIsMobileView(isMobile);
+    
+    if (isMobile && calendarRef.current) {
+      // En móvil por defecto mostramos la vista de día o lista
+      if (currentView === 'timeGridWeek' || currentView === 'dayGridMonth') {
+        calendarRef.current.getApi().changeView('timeGridDay');
+        setCurrentView('timeGridDay');
+      }
+    }
+  };
+  
+  // Efecto para detectar cambios en el tamaño de la ventana
   useEffect(() => {
-    const updateCalendarTimes = () => {
-      const minT = getMinTime();
-      const maxT = getMaxTime();
-      setMinTime(minT);
-      setMaxTime(maxT);
-      
-      console.log('Horas del calendario configuradas:', { 
-        allowedStartTime: window.reservationConfig?.allowed_start_time || '08:00',
-        allowedEndTime: window.reservationConfig?.allowed_end_time || '22:00',
-        minTimeHours: minT,
-        maxTimeHours: maxT
-      });
+    // Detectar el tamaño inicial
+    updateCalendarView();
+    
+    // Agregar listener para redimensionamiento
+    const handleResize = () => {
+      updateCalendarView();
     };
     
-    updateCalendarTimes();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
-  // Función para obtener el rango de fechas válido - ya no limitamos para permitir ver historial
-  const getValidRange = () => {
-    return {}; // No establecemos límites para permitir navegación completa
-  };
   
   // Configurar la vista inicial para mostrar la semana comenzando desde hoy
   useEffect(() => {
@@ -421,11 +465,9 @@ const Calendar7Days: React.FC<CalendarProps> = ({
       </div>
     );
   };
-  // Gestionar cambios en la vista del calendario
-  const handleViewChange = (viewInfo: ViewMountArg) => {
-    const newViewType = viewInfo.view.type;
-    // setCurrentViewType(newViewType); // Comentado - variable no utilizada
-    console.log(`Vista cambiada a: ${newViewType}`);
+  // Manejador para cambios de vista
+  const handleViewChange = (arg: ViewMountArg) => {
+    setCurrentView(arg.view.type);
   };
     // Verificar si hay alguna reserva consecutiva o si no hay suficiente tiempo entre reservas
   const checkForConsecutiveReservations = (tableId: number, start: Date, end: Date) => {
@@ -566,7 +608,6 @@ const Calendar7Days: React.FC<CalendarProps> = ({
         }}        initialDate={initialDate}
         // La vista debe comenzar en el día actual
         duration={{ days: 7 }}
-        validRange={getValidRange()}
         navLinks={true}
         slotMinTime={minTime}
         slotMaxTime={maxTime}
@@ -653,4 +694,4 @@ const Calendar7Days: React.FC<CalendarProps> = ({
 };
 
 export default Calendar7Days;
-export { Calendar7Days };
+

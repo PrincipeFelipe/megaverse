@@ -113,29 +113,35 @@ const ReservationsList: React.FC<ReservationsListProps> = ({
 
   return (
     <div className="mt-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Mis Reservas</h2>
-        <div className="flex gap-2">          
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold mb-3">Mis Reservas</h2>
+        <div className="flex flex-wrap gap-2">          
           <Button 
             variant={statusFilter === 'all' ? 'primary' : 'outline'} 
             onClick={() => setStatusFilter('all')}
             size="sm"
+            className="flex-1 sm:flex-none"
           >
-            Todas ({reservationCounts.all})
+            <span className="hidden sm:inline">Todas ({reservationCounts.all})</span>
+            <span className="sm:hidden">Todas <span className="ml-1 px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-xs rounded-full">{reservationCounts.all}</span></span>
           </Button>
           <Button 
             variant={statusFilter === 'active' ? 'primary' : 'outline'} 
             onClick={() => setStatusFilter('active')}
             size="sm"
+            className="flex-1 sm:flex-none"
           >
-            Activas ({reservationCounts.active})
+            <span className="hidden sm:inline">Activas ({reservationCounts.active})</span>
+            <span className="sm:hidden">Activas <span className="ml-1 px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-xs rounded-full">{reservationCounts.active}</span></span>
           </Button>
           <Button
             variant={statusFilter === 'completed' ? 'primary' : 'outline'} 
             onClick={() => setStatusFilter('completed')}
             size="sm"
+            className="flex-1 sm:flex-none"
           >
-            Completadas ({reservationCounts.completed})
+            <span className="hidden sm:inline">Completadas ({reservationCounts.completed})</span>
+            <span className="sm:hidden">Comp. <span className="ml-1 px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-xs rounded-full">{reservationCounts.completed}</span></span>
           </Button>
         </div>
       </div>
@@ -164,8 +170,8 @@ const ReservationsList: React.FC<ReservationsListProps> = ({
                     
                     {/* Contenido principal */}
                     <div className="flex-grow p-4">
-                      <div className="flex justify-between items-start">
-                        <h4 className="text-lg font-medium">{reservation.table_name}</h4>
+                      <div className="flex flex-wrap justify-between items-start">
+                        <h4 className="text-lg font-medium mb-1">{reservation.table_name}</h4>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyles(reservation.status)}`}>
                           {reservation.status === 'active' ? 'Activa' : 
                            reservation.status === 'cancelled' ? 'Cancelada' : 'Completada'}
@@ -174,9 +180,14 @@ const ReservationsList: React.FC<ReservationsListProps> = ({
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                         <div>
-                          <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          {/* En móviles mostramos fecha más compacta */}
+                          <div className="hidden sm:flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
                             <Calendar size={16} className="mr-1" />
                             <span>{formatDate(reservation.start_time)}</span>
+                          </div>
+                          <div className="sm:hidden flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <Calendar size={16} className="mr-1" />
+                            <span>{format(new Date(reservation.start_time), "dd/MM/yyyy (EEEE)", { locale: es })}</span>
                           </div>
                           <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
                             <Clock size={16} className="mr-1" />

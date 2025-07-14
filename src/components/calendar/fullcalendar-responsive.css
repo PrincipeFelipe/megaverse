@@ -1,0 +1,156 @@
+/* Estilos responsivos para FullCalendar */
+
+/* Ajustes generales para todos los tamaños */
+.calendar-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Tabletas (hasta 1024px) */
+@media (max-width: 1024px) {
+  .fc .fc-toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  .fc .fc-button {
+    padding: 0.5rem 0.8rem !important;
+    font-size: 0.9rem !important;
+  }
+  
+  .fc .fc-toolbar-title {
+    font-size: 1.25rem !important;
+    text-align: center;
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Mejorar contraste y legibilidad */
+  .fc-event {
+    border-radius: 4px !important;
+  }
+}
+
+/* Móviles (hasta 768px) */
+@media (max-width: 768px) {
+  /* Ocultar vistas no adecuadas para móvil */
+  .fc .fc-dayGridMonth-button,
+  .fc .fc-timeGridWeek-button {
+    display: none !important;
+  }
+  
+  /* Optimizar botones */
+  .fc .fc-button {
+    padding: 0.5rem 0.7rem !important;
+    font-size: 0.85rem !important;
+  }
+  
+  .fc .fc-toolbar-title {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Ajustar las celdas de tiempo */
+  .fc .fc-timegrid-slot {
+    height: 3em !important; /* Celdas más altas para mejor tapping */
+  }
+  
+  .fc .fc-timegrid-slot-label {
+    font-size: 0.8rem !important;
+  }
+  
+  /* Mejorar la visualización de eventos */
+  .fc-event-main-content {
+    padding: 0.3rem !important;
+  }
+  
+  .fc-event-main-content .font-medium {
+    font-size: 0.8rem !important;
+    line-height: 1.2 !important;
+  }
+  
+  .fc-event-main-content .text-xs {
+    font-size: 0.7rem !important;
+    margin-top: 0.15rem !important;
+  }
+  
+  /* Mejorar vista de lista */
+  .fc-list-event {
+    padding: 8px !important;
+  }
+  
+  .fc-list-event-dot {
+    margin-right: 8px !important;
+  }
+  
+  .fc-list-event-title a {
+    font-size: 0.9rem !important;
+  }
+  
+  /* Mejorar visibilidad */
+  .fc .fc-timegrid-now-indicator-line {
+    border-width: 2px !important;
+  }
+}
+
+/* Móviles pequeños (hasta 480px) */
+@media (max-width: 480px) {
+  .fc .fc-button {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.8rem !important;
+    min-height: 2.2rem;
+  }
+  
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+  
+  /* Mejorar visualización */
+  .fc-event-main-content .font-medium {
+    font-size: 0.75rem !important;
+  }
+  
+  .fc-event-main-content .text-xs {
+    font-size: 0.65rem !important;
+  }
+  
+  /* Optimizar el espacio vertical */
+  .fc .fc-timegrid-slot {
+    height: 2.5em !important;
+  }
+  
+  /* Reducir el tamaño del eje de tiempo */
+  .fc .fc-timegrid-axis {
+    width: 35px !important;
+  }
+  
+  .fc .fc-timegrid-slot-label-cushion {
+    font-size: 0.7rem !important;
+  }
+}
+
+/* Ajustes específicos para el renderizado de eventos */
+@media (max-width: 768px) {
+  /* Ocultar información no esencial en eventos */
+  .event-details-non-essential {
+    display: none !important;
+  }
+  
+  /* Mostrar solo tiempo e información crítica */
+  .fc-event-time {
+    font-size: 0.7rem !important;
+  }
+  
+  /* Asegurar que el texto no se desborde */
+  .fc-event-title {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Mejoras para la vista de listado */
+.fc-list-table td {
+  padding: 8px !important;
+}

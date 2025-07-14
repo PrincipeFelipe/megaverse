@@ -1,0 +1,138 @@
+/* Estilos específicos para FullCalendar en dispositivos móviles y tablets */
+
+/* Estilos generales para móvil/tablet */
+@media (max-width: 768px) {
+  /* Contenedor principal más pequeño */
+  .calendar-container {
+    padding: 0;
+    margin: 0;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  /* Ajustes para la barra de herramientas */
+  .fc .fc-toolbar {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+  
+  /* Botones más grandes y más separados para mejor tap target */
+  .fc .fc-button {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9rem !important;
+    margin: 0.2rem !important;
+  }
+  
+  /* Título más pequeño */
+  .fc .fc-toolbar-title {
+    font-size: 1.1rem !important;
+    margin: 0.5rem 0 !important;
+    text-align: center;
+    width: 100%;
+  }
+  
+  /* Ajustar el tamaño de los encabezados de día */
+  .fc .fc-col-header-cell {
+    padding: 0.5rem 0.2rem !important;
+  }
+  
+  .fc .fc-col-header-cell-cushion {
+    font-size: 0.85rem;
+    white-space: normal;
+    padding: 0.2rem;
+  }
+  
+  /* Hacer los slots de hora más compactos */
+  .fc .fc-timegrid-slot {
+    height: 2em !important;
+  }
+  
+  /* Tamaño de etiquetas de hora */
+  .fc .fc-timegrid-axis-cushion,
+  .fc .fc-timegrid-slot-label-cushion {
+    font-size: 0.75rem;
+  }
+  
+  /* Eventos más compactos con texto más pequeño */
+  .fc-event {
+    font-size: 0.7rem !important;
+    border-radius: 3px !important;
+  }
+  
+  /* Ocultar información no esencial en eventos */
+  .fc-event .event-details {
+    display: none !important;
+  }
+  
+  .fc-event .event-time {
+    font-size: 0.65rem !important;
+  }
+  
+  /* Mejoras para vista de lista */
+  .fc-list-event-title {
+    font-size: 0.85rem;
+  }
+  
+  .fc-list-event-time {
+    font-size: 0.75rem;
+  }
+  
+  /* Cambiar el tamaño del texto en vista de día */
+  .fc .fc-daygrid-day-number {
+    font-size: 0.9rem;
+  }
+  
+  /* Mejorar el contraste y la visibilidad */
+  .fc-theme-standard td, 
+  .fc-theme-standard th {
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Mejorar la interacción táctil */
+  .fc-event {
+    padding: 0.15rem 0.3rem !important;
+  }
+  
+  /* Ajuste para el indicador de tiempo actual */
+  .fc .fc-timegrid-now-indicator-line {
+    border-width: 2px;
+  }
+  
+  /* Vista compacta de todo el día */
+  .fc .fc-timegrid-axis {
+    width: 45px !important;
+  }
+}
+
+/* Ajustes adicionales para teléfonos muy pequeños */
+@media (max-width: 480px) {
+  /* Reducir aún más los tamaños */
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+  
+  .fc .fc-timegrid-slot {
+    height: 1.5em !important;
+  }
+  
+  /* Botones de toolbar más compactos */
+  .fc .fc-toolbar .fc-button-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .fc .fc-button {
+    padding: 0.4rem 0.7rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  /* Simplificar el contenido para móviles pequeños */
+  .fc-event-main {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

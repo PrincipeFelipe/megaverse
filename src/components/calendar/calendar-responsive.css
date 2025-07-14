@@ -1,0 +1,168 @@
+/* Estilos responsivos para el calendario */
+
+/* Ajustes generales para tabletas (hasta 1024px) */
+@media screen and (max-width: 1024px) {
+  /* Hacer los botones de navegación más grandes en tabletas */
+  .fc .fc-button {
+    padding: 0.6rem 1rem !important;
+    font-size: 0.9rem !important;
+  }
+  
+  /* Ajustar espaciado en vista tableta */
+  .calendar-container {
+    padding: 0.5rem !important;
+  }
+  
+  /* Mejorar la claridad de los eventos */
+  .fc-event-title {
+    font-weight: 500;
+    font-size: 0.85rem !important;
+  }
+}
+
+/* Ajustes específicos para móviles (hasta 768px) */
+@media screen and (max-width: 768px) {
+  /* Toolbar más compacta */
+  .fc .fc-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .fc .fc-toolbar-title {
+    font-size: 1.1rem !important;
+    width: 100%;
+    text-align: center;
+    order: -1;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Botones más táctiles */
+  .fc .fc-button {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+    min-height: 2.5rem;
+  }
+  
+  /* Hacer la barra de botones más pequeña */
+  .fc .fc-button-group {
+    display: flex;
+    gap: 2px;
+  }
+  
+  /* Mejorar visibilidad de horas */
+  .fc .fc-timegrid-slot-label {
+    font-size: 0.75rem !important;
+  }
+  
+  /* Ajustes de alturas para eventos */
+  .fc .fc-timegrid-slot {
+    height: 2.5em !important; /* Hacer los slots más altos para mejor interacción táctil */
+  }
+  
+  /* Eventos más legibles */
+  .fc-event-main-content {
+    padding: 0.3rem 0.4rem !important;
+  }
+  
+  .fc-event-title {
+    font-size: 0.8rem !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* Mejorar vista de eventos */
+  .fc-event {
+    border-radius: 4px !important;
+  }
+  
+  /* Ajustar estilo de cabeceras de día */
+  .fc .fc-col-header-cell-cushion {
+    padding: 6px 4px;
+    font-size: 0.85rem;
+  }
+  
+  /* Ocultar información no esencial en eventos para ahorrar espacio */
+  .event-details-extra {
+    display: none !important;
+  }
+  
+  /* Centrar el contenido principal */
+  .calendar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Ajustes para teléfonos pequeños (hasta 480px) */
+@media screen and (max-width: 480px) {
+  /* Reducir el tamaño de los eventos al mínimo */
+  .fc-event-main-content {
+    padding: 0.2rem 0.3rem !important;
+  }
+  
+  .fc-event-main-content .font-medium {
+    font-size: 0.75rem !important;
+    margin: 0 !important;
+  }
+  
+  .fc-event-main-content .text-xs {
+    font-size: 0.65rem !important;
+    margin-top: 2px !important;
+  }
+  
+  /* Optimizar toolbar */
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+  
+  .fc .fc-button {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Ajustar vista vertical de día */
+  .fc .fc-timegrid-axis {
+    max-width: 30px !important;
+  }
+  
+  .fc .fc-timegrid-slot-label-cushion {
+    font-size: 0.7rem !important;
+  }
+  
+  /* Reducir padding en vistas de día y semana */
+  .fc .fc-timegrid-slot-label {
+    padding: 0 !important;
+  }
+  
+  /* Mejorar tap targets */
+  .fc .fc-timegrid-col-events {
+    margin: 0 1px !important;
+  }
+}
+
+/* Ajustes específicos para la vista de lista */
+.fc-list-event {
+  padding: 6px 8px !important;
+}
+
+.fc-list-event-title {
+  font-size: 0.9rem;
+}
+
+.fc-list-event-time {
+  font-size: 0.8rem;
+}
+
+/* Hacer que la vista de lista se vea mejor en móviles */
+@media screen and (max-width: 768px) {
+  .fc-list-event {
+    padding: 8px 10px !important;
+  }
+  
+  .fc-list-day-cushion {
+    padding: 10px !important;
+  }
+}

@@ -16,6 +16,8 @@ import ReservationsList from '../components/calendar/ReservationsList';
 import { testHoursVisualization } from '../utils/hourVisualizationTest';
 import { hasReachedDailyLimit, hasMinimumAdvanceTime } from '../utils/reservationValidation';
 import { UserLayout } from '../components/layout/UserLayout';
+import '../components/calendar/fullcalendar-responsive.css'; // Estilos responsivos para el calendario
+import './reservations-responsive.css'; // Estilos responsivos adicionales para la página completa
 
 // Tipo para errores de API
 type ApiError = {
@@ -570,7 +572,8 @@ export const ReservationsPage: React.FC = () => {
             className="flex-1"
           >
             <Calendar className="w-5 h-5 mr-2" />
-            Ver en calendario
+            <span className="hidden sm:inline">Ver en calendario</span>
+            <span className="inline sm:hidden">Calendario</span>
           </Button>
           <Button
             variant={viewMode === 'list' ? 'primary' : 'outline'}
@@ -578,8 +581,17 @@ export const ReservationsPage: React.FC = () => {
             className="flex-1"
           >
             <List className="w-5 h-5 mr-2" />
-            Ver como lista
+            <span className="hidden sm:inline">Ver como lista</span>
+            <span className="inline sm:hidden">Lista</span>
           </Button>
+        </div>
+        
+        {/* Tip para móvil: muestra una recomendación para usar lista en móvil */}
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md border border-blue-100 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300 sm:hidden">
+          <p className="flex items-center">
+            <span className="mr-2">💡</span>
+            <span>Consejo: En móviles, la vista de lista puede ser más cómoda para gestionar tus reservas</span>
+          </p>
         </div>
 
         {/* Selector de mesa (solo visible en modo calendario) */}

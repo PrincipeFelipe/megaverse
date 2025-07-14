@@ -1,0 +1,95 @@
+/* Estilos responsivos para la página de reservas */
+
+/* Ajustes generales para dispositivos móviles */
+@media (max-width: 768px) {
+  /* Hacer los elementos más grandes para interacción táctil */
+  .fc-button {
+    min-height: 2.5rem !important;
+  }
+  
+  /* Reducir padding para mejor uso de espacio */
+  .card-container .card {
+    padding: 0.75rem !important;
+  }
+  
+  /* Botones más grandes en modales y forms */
+  .modal-content button {
+    padding: 0.75rem !important;
+    min-height: 2.75rem;
+  }
+  
+  /* Mejor espaciado para formularios */
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  /* Aumentar tamaño de inputs para mejor interacción táctil */
+  input[type="text"],
+  input[type="number"],
+  select {
+    height: 2.75rem;
+    font-size: 1rem !important;
+  }
+  
+  /* Mejoras visuales para checkboxes */
+  input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  
+  /* Mejor espaciado para etiquetas de inputs */
+  label {
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+}
+
+/* Mejoras para teléfonos pequeños */
+@media (max-width: 480px) {
+  /* Reducir aún más los márgenes */
+  .container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  /* Hacer el selector de mesa más grande */
+  select {
+    height: 3rem !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Cambiar a diseño de columna única */
+  .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Botones de navegación más grandes */
+  .pagination-button {
+    min-width: 2.5rem !important;
+    min-height: 2.5rem !important;
+  }
+}
+
+/* Mejoras específicas para el calendario */
+@media (max-width: 768px) {
+  /* Reducir tamaño de título para ahorrar espacio */
+  .fc-toolbar-title {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Hacer los slots de hora más altos para mejor interacción táctil */
+  .fc-timegrid-slot {
+    height: 2.5em !important;
+  }
+  
+  /* Mejorar visualización de eventos */
+  .fc-event {
+    padding: 0.2rem !important;
+  }
+  
+  /* Alinear bien los botones de toolbar */
+  .fc-toolbar {
+    flex-wrap: wrap;
+    justify-content: center !important;
+  }
+}
