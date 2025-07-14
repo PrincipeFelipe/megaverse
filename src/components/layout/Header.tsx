@@ -159,13 +159,6 @@ export const Header: React.FC = () => {
                       >
                         <User className="w-4 h-4 mr-2" />
                         Mi Perfil
-                      </Link>                      <Link 
-                        to="/payments/history" 
-                        className="flex px-4 py-2 text-sm text-gray-300 hover:bg-dark-700 hover:text-primary-400"
-                        onClick={() => setUserMenuOpen(false)}
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Historial de Pagos
                       </Link>
                       
                       <Link 
@@ -333,16 +326,7 @@ export const Header: React.FC = () => {
                     Mi Perfil
                   </div>
                 </Link>
-                <Link
-                  to="/payments/history"
-                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className="flex items-center">
-                    <CreditCard className="w-5 h-5 mr-3" />
-                    Historial de Pagos
-                  </div>
-                </Link>
+
                 <Link
                   to="/consumption-payments"
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700"

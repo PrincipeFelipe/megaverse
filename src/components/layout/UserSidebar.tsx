@@ -37,8 +37,8 @@ export const UserSidebar: React.FC = () => {
     { 
       name: 'Mis Pagos', 
       icon: <CreditCard className="w-5 h-5" />, 
-      path: '/payments',
-      active: currentPath === '/payments'
+      path: '/payments/history',
+      active: currentPath === '/payments/history' || currentPath.startsWith('/payments/')
     },
     { 
       name: 'Limpieza', 
