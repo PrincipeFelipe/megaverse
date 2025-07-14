@@ -356,6 +356,14 @@ export const Calendar7Days: React.FC<CalendarProps> = ({
     const selectedStart = new Date(selectInfo.start);
     const selectedEnd = new Date(selectInfo.end);
     
+    // Si estamos en la vista de mes, cambiar a la vista de día del día seleccionado
+    if (selectInfo.view.type === 'dayGridMonth') {
+      const calendarApi = selectInfo.view.calendar;
+      calendarApi.changeView('timeGridDay', selectedStart);
+      setCurrentView('timeGridDay');
+      return;
+    }
+    
     // No permitir reservas en el pasado
     if (selectedStart < now) {
       showError('Fecha no válida', 'No se pueden realizar reservas en fechas u horas pasadas');
@@ -368,14 +376,6 @@ export const Calendar7Days: React.FC<CalendarProps> = ({
     
     if (reservationDuration > maxHours) {
       showError('Duración excedida', `La reserva no puede durar más de ${maxHours} horas`);
-      return;
-    }
-    
-    // Si estamos en la vista de mes, cambiar a la vista de día
-    if (selectInfo.view.type === 'dayGridMonth') {
-      const calendarApi = selectInfo.view.calendar;
-      calendarApi.changeView('timeGridDay', selectedStart);
-      // setCurrentViewType('timeGridDay'); // Comentado - variable no utilizada
       return;
     }
     

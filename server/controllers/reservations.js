@@ -6,25 +6,16 @@ export const getAllReservations = async (req, res) => {
   try {
     const connection = await pool.getConnection();
     
+    // Todos los usuarios pueden ver todas las reservas
     let query = `
       SELECT r.*, u.name as user_name, t.name as table_name 
       FROM reservations r
       JOIN users u ON r.user_id = u.id
       JOIN tables t ON r.table_id = t.id
+      ORDER BY r.start_time DESC
     `;
     
-    let params = [];
-    
-    // Si no es admin, filtrar solo las reservas del usuario actual
-    if (req.user.role !== 'admin') {
-      query += ' WHERE r.user_id = ?';
-      params.push(req.user.id);
-    }
-    
-    // Ordenar por fecha
-    query += ' ORDER BY r.start_time DESC';
-    
-    const [reservations] = await connection.query(query, params);
+    const [reservations] = await connection.query(query);
     
     // Debug: Verificar si el campo reason está presente
     console.log('Debug - Reservations sample:', reservations.slice(0, 1).map(r => ({
@@ -67,11 +58,7 @@ export const getReservationById = async (req, res) => {
     
     const reservation = reservations[0];
     
-    // Verificar permisos: solo el propio usuario o un admin pueden ver sus reservas
-    if (req.user.id !== reservation.user_id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'No tienes permiso para ver esta reserva' });
-    }
-    
+    // Todos los usuarios pueden ver cualquier reserva
     return res.status(200).json(reservation);
   } catch (error) {
     console.error('Error al obtener reserva por ID:', error);
