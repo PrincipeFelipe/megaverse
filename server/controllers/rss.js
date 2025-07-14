@@ -223,37 +223,75 @@ function generateRSSXML({ title, description, link, language, posts, siteUrl }) 
                       headerImageUrl.toLowerCase().endsWith('.gif') ? 'image/gif' : 
                       'image/jpeg';
       
-      // Multiple formatos para garantizar compatibilidad
+      // Imagen destacada/principal - campos separados
       itemXml += `\n      <enclosure url="${headerImageUrl}" type="${imgType}" length="150000" />`;
       itemXml += `\n      <media:content url="${headerImageUrl}" medium="image" type="${imgType}" />`;
       itemXml += `\n      <image>${headerImageUrl}</image>`;
       itemXml += `\n      <thumbnail>${headerImageUrl}</thumbnail>`;
       itemXml += `\n      <media:thumbnail url="${headerImageUrl}" />`;
+      
+      // Campos específicos para la imagen principal
+      itemXml += `\n      <featured_image>${headerImageUrl}</featured_image>`;
+      itemXml += `\n      <header_image_url>${headerImageUrl}</header_image_url>`;
+      itemXml += `\n      <main_image>${headerImageUrl}</main_image>`;
     }
     
-    // Añadir metadatos de imágenes dentro del contenido
+    // Añadir metadatos de imágenes dentro del contenido - cada una en campos separados
     if (contentImages.length > 0) {
       contentImages.forEach((imgUrl, index) => {
         const fullImgUrl = imgUrl.startsWith('http') ? imgUrl : `${siteUrl}${imgUrl.startsWith('/') ? imgUrl : '/' + imgUrl}`;
         const imgType = fullImgUrl.toLowerCase().endsWith('.png') ? 'image/png' : 
                         fullImgUrl.toLowerCase().endsWith('.gif') ? 'image/gif' : 
                         'image/jpeg';
+        
+        // Número de imagen para campos únicos (empezando en 1)
+        const imageNumber = index + 1;
                         
-        // Añadir en formato estándar
+        // Cada imagen del contenido en campos separados y numerados
+        itemXml += `\n      <content_image_${imageNumber}>${fullImgUrl}</content_image_${imageNumber}>`;
+        itemXml += `\n      <content_image_${imageNumber}_url>${fullImgUrl}</content_image_${imageNumber}_url>`;
+        itemXml += `\n      <content_image_${imageNumber}_type>${imgType}</content_image_${imageNumber}_type>`;
         itemXml += `\n      <media:content url="${fullImgUrl}" medium="image" type="${imgType}" />`;
         
-        // Para la primera imagen del contenido, también añadirla como thumbnail alternativo
+        // Para la primera imagen del contenido, también añadirla como thumbnail alternativo si no hay imagen principal
         if (index === 0 && !headerImageUrl) {
           itemXml += `\n      <enclosure url="${fullImgUrl}" type="${imgType}" length="150000" />`;
           itemXml += `\n      <image>${fullImgUrl}</image>`;
           itemXml += `\n      <thumbnail>${fullImgUrl}</thumbnail>`;
           itemXml += `\n      <media:thumbnail url="${fullImgUrl}" />`;
+          itemXml += `\n      <first_content_image>${fullImgUrl}</first_content_image>`;
         }
       });
+      
+      // Campo con el total de imágenes del contenido
+      itemXml += `\n      <content_images_count>${contentImages.length}</content_images_count>`;
+      
+      // Campo con todas las URLs de imágenes del contenido separadas por comas
+      itemXml += `\n      <content_images_list>${contentImages.map(url => 
+        url.startsWith('http') ? url : `${siteUrl}${url.startsWith('/') ? url : '/' + url}`
+      ).join(',')}</content_images_list>`;
+    }
+    
+    // Campos de resumen de imágenes
+    const totalImages = (headerImageUrl ? 1 : 0) + contentImages.length;
+    itemXml += `\n      <total_images_count>${totalImages}</total_images_count>`;
+    
+    if (headerImageUrl && contentImages.length > 0) {
+      itemXml += `\n      <has_featured_image>true</has_featured_image>`;
+      itemXml += `\n      <has_content_images>true</has_content_images>`;
+    } else if (headerImageUrl) {
+      itemXml += `\n      <has_featured_image>true</has_featured_image>`;
+      itemXml += `\n      <has_content_images>false</has_content_images>`;
+    } else if (contentImages.length > 0) {
+      itemXml += `\n      <has_featured_image>false</has_featured_image>`;
+      itemXml += `\n      <has_content_images>true</has_content_images>`;
+    } else {
+      itemXml += `\n      <has_featured_image>false</has_featured_image>`;
+      itemXml += `\n      <has_content_images>false</has_content_images>`;
     }
     
     // Información de depuración sobre imágenes encontradas
-    console.log(`📸 Post "${post.title}": imagen cabecera=${!!headerImageUrl}, imágenes contenido=${contentImages.length}`);
+    console.log(`📸 Post "${post.title}": imagen cabecera=${!!headerImageUrl}, imágenes contenido=${contentImages.length}, total=${totalImages}`);
     
     itemXml += `\n    </item>`;
     return itemXml;
