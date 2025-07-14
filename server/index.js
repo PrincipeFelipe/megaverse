@@ -35,7 +35,7 @@ const app = express();
 
 // CORS Configuration
 app.use(cors({
-  origin: '[https://clubmegaverse.com](https://clubmegaverse.com)', // IMPORTANT: Exact frontend domain
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'https://clubmegaverse.com'], // Frontend domains
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true,
   exposedHeaders: ['Content-Disposition']
@@ -105,6 +105,20 @@ app.use('/api/notifications', notificationRoutes);
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'API funcionando correctamente' });
 });
+
+// Rutas directas para RSS (para compatibilidad con lectores RSS y servicios)
+// Estas rutas deben ir antes del middleware 404
+import { rssController } from './controllers/rss.js';
+app.get('/feed.xml', rssController.getBlogRSSFeed);
+app.get('/rss.xml', rssController.getBlogRSSFeed);
+app.get('/rss/blog', rssController.getBlogRSSFeed);
+app.get('/rss', rssController.getBlogRSSFeed);
+app.get('/feed', rssController.getBlogRSSFeed);
+app.get('/blog/feed', rssController.getBlogRSSFeed);
+// Rutas específicas para Make.com
+app.get('/make.xml', rssController.getBlogRSSFeed);
+app.get('/make/feed.xml', rssController.getBlogRSSFeed);
+app.get('/make/feed', rssController.getBlogRSSFeed);
 
 // Handle not found routes (for API only)
 // This middleware runs if no defined API routes match the request.
