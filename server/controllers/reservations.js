@@ -1,6 +1,27 @@
 import { pool } from '../config/database.js';
-import { isValidISODate, logDateDetails, isValidDate, safeParseDate } from '../utils/dateUtils.js';
+import { isValidISODate, logDateDetails } from '../utils/dateUtils.js';
 import { createNotification } from './notifications.js';
+
+// Función auxiliar para parsear fechas de forma segura
+const safeParseDate = (value) => {
+  if (!value) return null;
+  
+  try {
+    // Si ya es una fecha, devolver directamente
+    if (value instanceof Date) {
+      return !isNaN(value.getTime()) ? value : null;
+    }
+    
+    // Convertir a string si es necesario
+    const dateStr = String(value);
+    const date = new Date(dateStr);
+    
+    return !isNaN(date.getTime()) ? date : null;
+  } catch (e) {
+    console.error(`Error parsing date ${value}:`, e);
+    return null;
+  }
+};
 
 export const getAllReservations = async (req, res) => {
   try {
