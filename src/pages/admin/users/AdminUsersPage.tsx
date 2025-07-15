@@ -161,7 +161,29 @@ export const AdminUsersPage: React.FC = () => {
       setLoading(true);
       showLoading(isEditMode ? 'Actualizando usuario...' : 'Creando usuario...');
       
-      if (isEditMode && selectedUser) {        // Actualizamos usuario
+      if (isEditMode && selectedUser) {
+        // Formatear la fecha de membresía si existe
+        let formattedMembershipDate: string | undefined = formValues.membership_date;
+        if (formattedMembershipDate && formattedMembershipDate.trim() !== '') {
+          try {
+            // Si es una fecha ISO completa, extraer solo la parte de fecha YYYY-MM-DD
+            if (formattedMembershipDate.includes('T')) {
+              formattedMembershipDate = formattedMembershipDate.split('T')[0];
+            }
+            // Verificar que sea una fecha válida
+            const date = new Date(formattedMembershipDate);
+            if (isNaN(date.getTime())) {
+              formattedMembershipDate = undefined;
+            }
+          } catch (error) {
+            console.warn('Error al formatear membership_date:', error);
+            formattedMembershipDate = undefined;
+          }
+        } else {
+          formattedMembershipDate = undefined;
+        }
+        
+        // Actualizamos usuario
         const userData = {
           name: formValues.name,
           username: formValues.username,
@@ -169,7 +191,7 @@ export const AdminUsersPage: React.FC = () => {
           role: formValues.role as 'admin' | 'user',
           phone: formValues.phone,
           dni: formValues.dni,
-          membership_date: formValues.membership_date
+          membership_date: formattedMembershipDate
         };
         
         // Si hay contraseña, la incluimos
@@ -183,7 +205,29 @@ export const AdminUsersPage: React.FC = () => {
           'Usuario actualizado', 
           `El usuario "${formValues.name}" ha sido actualizado correctamente`
         );
-      } else {        // Creamos usuario nuevo
+      } else {
+        // Formatear la fecha de membresía para nuevo usuario
+        let formattedMembershipDateNew: string | undefined = formValues.membership_date;
+        if (formattedMembershipDateNew && formattedMembershipDateNew.trim() !== '') {
+          try {
+            // Si es una fecha ISO completa, extraer solo la parte de fecha YYYY-MM-DD
+            if (formattedMembershipDateNew.includes('T')) {
+              formattedMembershipDateNew = formattedMembershipDateNew.split('T')[0];
+            }
+            // Verificar que sea una fecha válida
+            const date = new Date(formattedMembershipDateNew);
+            if (isNaN(date.getTime())) {
+              formattedMembershipDateNew = undefined;
+            }
+          } catch (error) {
+            console.warn('Error al formatear membership_date para nuevo usuario:', error);
+            formattedMembershipDateNew = undefined;
+          }
+        } else {
+          formattedMembershipDateNew = undefined;
+        }
+        
+        // Creamos usuario nuevo
         const newUserData = {
           name: formValues.name,
           username: formValues.username,
@@ -192,7 +236,7 @@ export const AdminUsersPage: React.FC = () => {
           role: formValues.role as 'admin' | 'user',
           phone: formValues.phone,
           dni: formValues.dni,
-          membership_date: formValues.membership_date,
+          membership_date: formattedMembershipDateNew,
           is_active: true // Los usuarios creados desde el panel de admin son activos por defecto
         };
         

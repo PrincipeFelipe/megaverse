@@ -332,7 +332,21 @@ export const updateUser = async (req, res) => {
     
     // Formatear la fecha de membresía si se proporciona y existe la columna
     if (membership_date !== undefined && availableColumns.includes('membership_date')) {
-      updates.membership_date = membership_date || null; // Permitir valor nulo
+      if (membership_date && membership_date.trim() !== '') {
+        try {
+          const date = new Date(membership_date);
+          if (!isNaN(date.getTime())) {
+            // Convertir a formato MySQL YYYY-MM-DD
+            updates.membership_date = date.toISOString().split('T')[0];
+          } else {
+            updates.membership_date = null;
+          }
+        } catch (error) {
+          updates.membership_date = null;
+        }
+      } else {
+        updates.membership_date = null; // Permitir valor nulo
+      }
     }
     
     // Solo los administradores pueden cambiar el rol o el saldo

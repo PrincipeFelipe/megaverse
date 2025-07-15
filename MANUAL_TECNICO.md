@@ -946,84 +946,61 @@ En el panel de Cloudflare (dash.cloudflare.com):
 
 **Backend (.env.production):**
 ```env
+# Entorno
 NODE_ENV=production
+
+# Servidor
 PORT=3001
-JWT_SECRET=2af1af5bd8c15a2c17b6673ee8501033c2b737bbbdba14e291acf7b9bc01d9c8
+HOST=localhost
+
+# Base de datos
 DB_HOST=localhost
 DB_USER=megaverse_user
 DB_PASSWORD=M3g4V3rs3
 DB_NAME=db_megaverse
+DB_PORT=3306
+
+# Autenticación
+JWT_SECRET=2af1af5bd8c15a2c17b6673ee8501033c2b737bbbdba14e291acf7b9bc01d9c8
+JWT_EXPIRES_IN=24h
+
+# URLs
 SITE_URL=https://clubmegaverse.com
+API_URL=https://clubmegaverse.com/api
+
+# Upload
+MAX_FILE_SIZE=10485760
+UPLOAD_PATH=./uploads
+
+# Email (si se implementa)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=noreply@clubmegaverse.com
+SMTP_PASSWORD=tu_password_smtp
+
+# Cloudflare (si se necesita API)
+CLOUDFLARE_API_TOKEN=tu_token_cloudflare
+CLOUDFLARE_ZONE_ID=tu_zone_id
+
+# Debug
+DEBUG=false
+LOG_LEVEL=info
 ```
 
 **Frontend (.env.production):**
 ```env
+# API
 VITE_API_URL=https://clubmegaverse.com/api
-```
 
-### Scripts de reinicio para producción
+# Aplicación
+VITE_APP_NAME=MegaVerse
+VITE_APP_VERSION=1.0.0
 
-**Script de reinicio PM2 (/var/www/megaverse/restart_pm2.sh):**
-```bash
-#!/bin/bash
-echo "--- Deteniendo y eliminando la aplicación 'megaverse-api' de PM2 ---"
-pm2 stop megaverse-api 2>/dev/null
-pm2 delete megaverse-api 2>/dev/null
+# URLs
+VITE_SITE_URL=https://clubmegaverse.com
 
-echo "--- Matando el demonio de PM2 completamente (limpieza agresiva) ---"
-pm2 kill
-
-echo "--- Esperando 10 segundos para asegurar que los procesos mueran ---"
-sleep 10
-
-echo "--- Verificando si hay procesos escuchando en el puerto 3001 ---"
-sudo ss -tulnp | grep 3001
-
-echo "--- Eliminando el archivo de volcado de PM2 para un estado limpio ---"
-sudo rm /root/.pm2/dump.pm2 2>/dev/null
-
-echo "--- Eliminando logs antiguos ---"
-sudo rm -rf /var/www/megaverse/private/logs/*
-
-echo "--- Iniciando la aplicación Backend con PM2 ---"
-cd /var/www/megaverse/backend
-pm2 start ecosystem.config.cjs
-
-echo "--- Guardando la configuración de PM2 para que persista en reinicios ---"
-pm2 save
-
-echo "--- Proceso de reinicio completo de PM2 finalizado ---"
-```
-
-**Hacer ejecutable:**
-```bash
-chmod +x /var/www/megaverse/restart_pm2.sh
-```
-
-### Monitoreo y logs
-
-```bash
-# Ver logs de PM2
-pm2 logs megaverse-api
-
-# Monitoreo en tiempo real
-pm2 monit
-
-# Logs de Nginx
-sudo tail -f /var/log/nginx/access.log
-sudo tail -f /var/log/nginx/error.log
-
-# Logs de Cloudflare Tunnel
-sudo journalctl -u cloudflared -f
-
-# Logs de MySQL
-sudo tail -f /var/log/mysql/error.log
-
-# Estado de servicios
-sudo systemctl status nginx
-sudo systemctl status mysql
-sudo systemctl status cloudflared
-pm2 list
+# Configuración de build
+VITE_BUILD_MODE=production
 ```
 
 ---
@@ -1143,7 +1120,7 @@ mysql -u root -p
 SHOW FULL PROCESSLIST;
 
 # Optimizar base de datos
-OPTIMIZE TABLE reservations, products, users;
+OPTIMIZE TABLE reservations, users, products;
 ```
 
 ### Problemas específicos de producción encontrados y solucionados
@@ -1531,7 +1508,7 @@ CREATE TABLE consumptions (
     consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (product_id) REFERENCES products(id),
-    INDEX idx_consumptions_user_date (user_id, consumed_at),
+    INDEX idx_consumations_user_date (user_id, consumed_at),
     INDEX idx_consumptions_product (product_id)
 );
 
@@ -1683,8 +1660,569 @@ VITE_BUILD_MODE=production
 
 ---
 
-**Última actualización**: Julio 2025  
-**Versión del manual**: 2.0  
-**Basado en experiencia de producción**: clubmegaverse.com
+## 🛠️ Problemas comunes y soluciones
 
-*Este manual ha sido enriquecido con la experiencia real de despliegue en producción, incluyendo todos los problemas encontrados y sus soluciones probadas en el entorno real.*
+### Problemas de instalación
+
+#### **Error: "Cannot connect to MySQL"**
+```bash
+# Verificar que MySQL esté corriendo
+sudo systemctl status mysql
+
+# Verificar credenciales en .env
+# Crear usuario si no existe:
+mysql -u root -p
+CREATE USER 'tu_usuario'@'localhost' IDENTIFIED BY 'tu_password';
+GRANT ALL PRIVILEGES ON db_megaverse.* TO 'tu_usuario'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+#### **Error: "Port 8090 already in use"**
+```bash
+# Encontrar proceso usando el puerto
+sudo lsof -i :8090
+
+# Matar proceso si es necesario
+sudo kill -9 PID_DEL_PROCESO
+
+# O cambiar puerto en server/.env
+PORT=8091
+```
+
+#### **Error: "npm install fails"**
+```bash
+# Limpiar caché de npm
+npm cache clean --force
+
+# Eliminar node_modules y reinstalar
+rm -rf node_modules package-lock.json
+npm install
+
+# Si persiste, verificar versión de Node
+node --version  # Debe ser >= 16
+```
+
+### Problemas de desarrollo
+
+#### **CORS errors en desarrollo**
+```bash
+# Ejecutar script de diagnóstico
+./fix-cors-settings.sh
+
+# Verificar que ambos servidores estén corriendo
+# Frontend en :5173, Backend en :8090
+
+# Verificar configuración CORS en server/index.js
+```
+
+#### **Error: "JWT token invalid"**
+```javascript
+// Limpiar localStorage si hay tokens corruptos
+localStorage.removeItem('token');
+localStorage.removeItem('user');
+
+// Verificar que JWT_SECRET sea el mismo en desarrollo y token
+```
+
+#### **Errores de timezone en reservas**
+```bash
+# Ejecutar script de corrección
+cd server
+npm run fix-timezone-display
+
+# Verificar zona horaria del servidor
+timedatectl status
+
+# En desarrollo, usar UTC para consistencia
+export TZ=UTC
+```
+
+### Problemas de producción
+
+#### **Error 502 Bad Gateway (Nginx)**
+```bash
+# Verificar que PM2 esté corriendo
+pm2 list
+
+# Verificar logs de la aplicación
+pm2 logs
+
+# Verificar configuración de Nginx
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### **Base de datos desconectada**
+```bash
+# Verificar estado de MySQL
+sudo systemctl status mysql
+
+# Verificar conexiones activas
+mysql -u root -p
+SHOW PROCESSLIST;
+
+# Verificar logs de MySQL
+sudo tail -f /var/log/mysql/error.log
+```
+
+#### **Alto uso de memoria/CPU**
+```bash
+# Monitorear con PM2
+pm2 monit
+
+# Verificar consultas lentas en MySQL
+mysql -u root -p
+SHOW FULL PROCESSLIST;
+
+# Optimizar base de datos
+OPTIMIZE TABLE reservations, users, products;
+```
+
+### Problemas específicos de producción encontrados y solucionados
+
+#### **Error: "Incorrect datetime value" en reservas**
+
+**Síntoma:**
+```
+sqlMessage: "Incorrect datetime value: '2025-07-14T08:00:00.000Z' for column `db_megaverse`.`reservations`.`start_time` at row 1"
+```
+
+**Causa:** MySQL/MariaDB en producción es estricto con el formato de fecha y no acepta el formato ISO 8601 con 'Z' y milisegundos.
+
+**Solución aplicada en `server/controllers/reservations.js`:**
+```javascript
+// En lugar de usar directamente el formato ISO
+const startTimeIso = startDate.toISOString();
+
+// Convertir a formato MySQL YYYY-MM-DD HH:MM:SS
+const startTimeSql = startDate.toISOString().slice(0, 19).replace('T', ' ');
+const endTimeSql = endDate.toISOString().slice(0, 19).replace('T', ' ');
+
+// Usar en la consulta SQL
+const [result] = await connection.query(
+  `INSERT INTO reservations 
+   (user_id, table_id, start_time, end_time, ...) 
+   VALUES (?, ?, ?, ?, ...)`,
+  [userId, tableId, startTimeSql, endTimeSql, ...]
+);
+```
+
+#### **Error: "ReferenceError: safeParseDate is not defined"**
+
+**Síntoma:**
+```
+ReferenceError: safeParseDate is not defined
+ReferenceError: approved is not defined
+```
+
+**Causa:** Problemas con la importación de módulos ES en Node.js en producción o ámbito de variables incorrecto.
+
+**Solución aplicada:**
+1. **Integrar `safeParseDate` directamente en `reservations.js`:**
+```javascript
+// Eliminar de importaciones y definir localmente
+const safeParseDate = (dateString) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return null;
+  return date;
+};
+```
+
+2. **Declarar variable `approved` al inicio de la función:**
+```javascript
+export const createReservation = async (req, res) => {
+  try {
+    let approved = true; // Declarada al inicio de la función
+    
+    // ... resto de la lógica ...
+    
+    // Solo se reasigna el valor, no se redeclara
+    if (normalizedValues.allDay && config.requires_approval_for_all_day && req.user.role !== 'admin') {
+      approved = false;
+    }
+  } catch (error) { /* ... */ }
+};
+```
+
+#### **Error: "ERR_TOO_MANY_REDIRECTS" con Cloudflare**
+
+**Síntoma:** Bucle infinito de redirecciones al acceder al sitio web.
+
+**Causa:** Configuración incorrecta entre Cloudflare, el túnel y Nginx.
+
+**Solución aplicada:**
+1. **Configurar SSL Mode en Cloudflare:** Cambiar a "Flexible" temporalmente o "Full (strict)" con certificados válidos.
+2. **Asegurar configuración correcta en config.yml del túnel:**
+```yaml
+ingress:
+  # Orden específico: phpMyAdmin primero (más específico)
+  - hostname: phpmyadmin.clubmegaverse.com
+    service: http://localhost:80
+  # Luego aplicación principal
+  - hostname: clubmegaverse.com
+    service: http://localhost:443
+  - hostname: www.clubmegaverse.com
+    service: http://localhost:443
+  - service: http_status:404
+```
+
+#### **Error: Headers "x-powered-by: Express" en la raíz**
+
+**Síntoma:** El backend de Express se muestra en lugar del frontend en la página principal.
+
+**Causa:** Nginx no configurado correctamente como `default_server` o conflicto en las rutas.
+
+**Solución aplicada:**
+1. **Asegurar `default_server` en Nginx:**
+```nginx
+server {
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name clubmegaverse.com www.clubmegaverse.com;
+    # ...
+}
+```
+
+2. **Verificar que no hay otros archivos en sites-enabled:**
+```bash
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### **Problema de zona horaria en validaciones**
+
+**Síntoma:** Reservas válidas rechazadas como "fecha pasada" debido a diferencias de zona horaria.
+
+**Solución aplicada:**
+1. **Configurar servidor en UTC:**
+```bash
+sudo timedatectl set-timezone UTC
+sudo reboot
+```
+
+2. **Configurar MySQL en UTC:**
+```bash
+# Editar /etc/mysql/mysql.conf.d/mysqld.cnf
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+
+# Añadir en la sección [mysqld]:
+[mysqld]
+default_time_zone = '+00:00'
+
+# Reiniciar MySQL
+sudo systemctl restart mysql
+
+# Verificar configuración
+mysql -u root -p
+SELECT @@global.time_zone, @@session.time_zone;
+```
+
+3. **Verificar compatibilidad de fechas:**
+```sql
+-- En MySQL, verificar que las fechas se almacenan correctamente
+USE db_megaverse;
+SELECT 
+    id, 
+    start_time, 
+    end_time,
+    CONVERT_TZ(start_time, '+00:00', 'SYSTEM') as start_time_local,
+    created_at
+FROM reservations 
+ORDER BY created_at DESC 
+LIMIT 5;
+```
+
+---
+
+## 📋 Apéndices
+
+### Apéndice A: Configuración detallada de Cloudflare
+
+#### **Configuración de DNS en Cloudflare Dashboard**
+
+En `dash.cloudflare.com` > Tu dominio > DNS > Records:
+
+| Tipo | Nombre | Contenido | Proxy | TTL |
+|------|--------|-----------|--------|-----|
+| CNAME | @ (clubmegaverse.com) | [tunnel-id].cfargotunnel.com | 🟠 Proxied | Auto |
+| CNAME | www | clubmegaverse.com | 🟠 Proxied | Auto |
+| CNAME | phpmyadmin | clubmegaverse.com | 🟠 Proxied | Auto |
+
+#### **Configuración de SSL/TLS en Cloudflare**
+
+1. **SSL/TLS encryption mode**: Full (strict)
+2. **Always Use HTTPS**: ON
+3. **HTTP Strict Transport Security (HSTS)**: Habilitado
+4. **Minimum TLS Version**: 1.2
+5. **Opportunistic Encryption**: ON
+6. **TLS 1.3**: ON
+
+#### **Configuración de Security en Cloudflare**
+
+1. **Security Level**: Medium
+2. **Bot Fight Mode**: ON
+3. **Challenge Passage**: 30 minutos
+4. **Browser Integrity Check**: ON
+
+#### **Page Rules recomendadas**
+
+| URL | Configuración |
+|-----|--------------|
+| `https://clubmegaverse.com/api/*` | Cache Level: Bypass, Security Level: High |
+| `https://clubmegaverse.com/uploads/*` | Cache Level: Standard, Edge Cache TTL: 1 month |
+| `https://phpmyadmin.clubmegaverse.com/*` | Security Level: High, Always Use HTTPS: ON |
+
+### Apéndice B: Comandos de administración frecuentes
+
+#### **Gestión de PM2**
+```bash
+# Estado de aplicaciones
+pm2 list
+pm2 info megaverse-api
+pm2 monit
+
+# Logs
+pm2 logs megaverse-api
+pm2 logs megaverse-api --lines 100
+pm2 logs megaverse-api --err
+
+# Reinicio
+pm2 restart megaverse-api
+pm2 reload megaverse-api  # Zero-downtime reload
+pm2 stop megaverse-api
+pm2 start megaverse-api
+
+# Configuración
+pm2 startup
+pm2 save
+pm2 dump
+pm2 kill  # Mata todos los procesos PM2
+```
+
+#### **Gestión de Nginx**
+```bash
+# Estado y control
+sudo systemctl status nginx
+sudo systemctl start nginx
+sudo systemctl stop nginx
+sudo systemctl restart nginx
+sudo systemctl reload nginx
+
+# Configuración
+sudo nginx -t  # Verificar sintaxis
+sudo nginx -T  # Mostrar configuración completa
+
+# Logs
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log | grep "POST\|PUT\|DELETE"
+```
+
+#### **Gestión de MySQL**
+```bash
+# Estado y control
+sudo systemctl status mysql
+sudo systemctl start mysql
+sudo systemctl stop mysql
+sudo systemctl restart mysql
+
+# Conexión
+mysql -u root -p
+mysql -u megaverse_user -pM3g4V3rs3 db_megaverse
+
+# Logs y monitoreo
+sudo tail -f /var/log/mysql/error.log
+sudo tail -f /var/log/mysql/slow.log
+
+# Comandos útiles en MySQL
+SHOW PROCESSLIST;
+SHOW ENGINE INNODB STATUS;
+SELECT * FROM information_schema.innodb_trx;
+```
+
+#### **Gestión de Cloudflare Tunnel**
+```bash
+# Estado y control
+sudo systemctl status cloudflared
+sudo systemctl start cloudflared
+sudo systemctl stop cloudflared
+sudo systemctl restart cloudflared
+
+# Logs
+sudo journalctl -u cloudflared -f
+sudo journalctl -u cloudflared --since "1 hour ago"
+
+# Configuración
+cloudflared tunnel list
+cloudflared tunnel info megaverse-tunnel
+sudo cloudflared tunnel validate /etc/cloudflared/config.yml
+```
+
+### Apéndice C: Checklist de mantenimiento
+
+#### **Mantenimiento diario**
+- [ ] Verificar estado de servicios: `systemctl status nginx mysql cloudflared && pm2 list`
+- [ ] Revisar logs de errores: `pm2 logs megaverse-api --err --lines 50`
+- [ ] Comprobar espacio en disco: `df -h`
+- [ ] Verificar memoria: `free -h`
+- [ ] Comprobar accesibilidad web: `curl -I https://clubmegaverse.com`
+
+#### **Mantenimiento semanal**
+- [ ] Actualizar sistema: `sudo apt update && sudo apt upgrade`
+- [ ] Verificar certificados SSL: `sudo certbot certificates`
+- [ ] Limpiar logs antiguos: `sudo journalctl --vacuum-time=7d`
+- [ ] Verificar backup automático
+- [ ] Revisar logs de Nginx: `sudo logrotate -f /etc/logrotate.d/nginx`
+- [ ] Optimizar base de datos: `OPTIMIZE TABLE reservations, users, products;`
+
+#### **Mantenimiento mensual**
+- [ ] Renovar certificados SSL: `sudo certbot renew --dry-run`
+- [ ] Actualizar dependencias de Node.js: `npm audit && npm audit fix`
+- [ ] Verificar configuración de seguridad de Cloudflare
+- [ ] Revisar y rotar logs de aplicación
+- [ ] Crear backup completo del sistema
+- [ ] Revisar métricas de rendimiento
+
+### Apéndice D: Estructura de la base de datos
+
+#### **Tablas principales**
+
+```sql
+-- Usuarios
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('user', 'admin') DEFAULT 'user',
+    avatar VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Mesas
+CREATE TABLE tables (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    capacity INT DEFAULT 4,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Reservas
+CREATE TABLE reservations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    table_id INT NOT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    duration_hours DECIMAL(4,2),
+    num_members INT DEFAULT 1,
+    num_guests INT DEFAULT 0,
+    all_day BOOLEAN DEFAULT FALSE,
+    reason TEXT,
+    approved BOOLEAN DEFAULT TRUE,
+    status ENUM('active', 'cancelled', 'completed') DEFAULT 'active',
+    rejection_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (table_id) REFERENCES tables(id),
+    INDEX idx_reservations_date_table (start_time, table_id),
+    INDEX idx_reservations_user (user_id),
+    INDEX idx_reservations_status (status)
+);
+
+-- Productos
+CREATE TABLE products (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    category VARCHAR(100),
+    stock INT DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
+    image VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_products_active (active),
+    INDEX idx_products_category (category)
+);
+
+-- Consumos
+CREATE TABLE consumptions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    total_price DECIMAL(10,2) NOT NULL,
+    consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    INDEX idx_consumations_user_date (user_id, consumed_at),
+    INDEX idx_consumptions_product (product_id)
+);
+
+-- Blog
+CREATE TABLE blog_posts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    content LONGTEXT NOT NULL,
+    excerpt TEXT,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    featured_image VARCHAR(255),
+    status ENUM('draft', 'published') DEFAULT 'draft',
+    author_id INT NOT NULL,
+    published_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES users(id),
+    INDEX idx_blog_status_published (status, published_at),
+    INDEX idx_blog_slug (slug)
+);
+
+-- Configuración de reservas
+CREATE TABLE reservation_config (
+    id INT PRIMARY KEY DEFAULT 1,
+    max_hours_per_reservation INT DEFAULT 4,
+    max_reservations_per_user_per_day INT DEFAULT 1,
+    min_hours_in_advance INT DEFAULT 0,
+    allowed_start_time TIME DEFAULT '08:00:00',
+    allowed_end_time TIME DEFAULT '22:00:00',
+    requires_approval_for_all_day BOOLEAN DEFAULT TRUE,
+    allow_consecutive_reservations BOOLEAN DEFAULT TRUE,
+    min_time_between_reservations INT DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+### Apéndice E: Endpoints de API
+
+#### **Autenticación (`/api/auth`)**
+- `POST /register` - Registro de usuarios
+- `POST /login` - Inicio de sesión
+- `POST /logout` - Cerrar sesión
+- `GET /me` - Obtener usuario actual
+- `PUT /profile` - Actualizar perfil
+
+#### **Usuarios (`/api/users`)**
+- `GET /` - Listar usuarios (admin)
+- `GET /:id` - Obtener usuario específico
+- `PUT /:id` - Actualizar usuario
+- `DELETE /:id` - Eliminar usuario (admin)
+
+#### **Reservas (`/api/reservations`)**
+- `GET /` - Listar todas las reservas
+- `GET /:id` - Obtener reserva específica
+- `POST /` - Crear nueva reserva
+- `PUT /:id` - Actualizar reserva
+- `DELETE /:id` - Eliminar reserva
+- `PATCH /:id/status` - Cambiar estado de reserva
+- `POST /:id/approve` - Aprobar reserva (admin)
+- `POST /:id/reject` - Rechazar reserva (admin)
+
+#### **Productos
