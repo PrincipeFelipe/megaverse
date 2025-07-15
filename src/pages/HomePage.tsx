@@ -184,7 +184,7 @@ export const HomePage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
-                <Card hover className="p-4 md:p-6 h-full text-center">
+                <Card className="p-4 md:p-6 h-full text-center">
                   <div className="text-primary-400 mb-3 md:mb-4 flex justify-center">
                     {feature.icon}
                   </div>
@@ -236,7 +236,7 @@ export const HomePage: React.FC = () => {
               className="p-6 md:p-10 rounded-2xl bg-dark-800/90 md:bg-dark-800/70 backdrop-blur-none md:backdrop-blur-lg border border-primary-500/30 shadow-xl"
             >
               <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4 md:mb-6">
-                ¿Listo para la <span className="text-megaverse-gradient">batalla</span>?
+                ¡ÚNETE <span className="text-megaverse-gradient">AHORA</span>!
               </h2>
               <p className="text-secondary-300 text-base md:text-lg mb-6 md:mb-8">
                 Únete a MEGAVERSE y forma parte de la mejor comunidad gaming. 
