@@ -295,6 +295,7 @@ export const login = async (req, res) => {
       createdAt: user.created_at,
       membership_date: user.membership_date,
       phone: user.phone,
+      dni: user.dni,
       avatar_url: user.avatar_url
     };
     
@@ -327,7 +328,7 @@ export const getMe = async (req, res) => {
     const connection = await pool.getConnection();
     // Buscar usuario por ID (del token)
     const [users] = await connection.query(
-      'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, avatar_url FROM users WHERE id = ?',
+      'SELECT id, name, username, email, role, balance, created_at, membership_date, phone, dni, avatar_url FROM users WHERE id = ?',
       [req.user.id]
     );
     
