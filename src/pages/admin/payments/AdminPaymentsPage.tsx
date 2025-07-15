@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '../../../components/admin/AdminLayout';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { Table } from '../../../components/ui/Table';
 import { Pagination } from '../../../components/ui/Pagination';
 import { paymentsService, adminUserService } from '../../../services/api';
@@ -55,12 +56,7 @@ const AdminPaymentsPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   
   const navigate = useNavigate();
-  
-  // Efecto para cargar los pagos iniciales
-  useEffect(() => {
-    loadPayments();
-    loadUsers();
-  }, [currentPage, filters]);
+
   // Función para cargar la lista de usuarios (para el filtro)
   const loadUsers = async () => {
     try {
@@ -72,7 +68,7 @@ const AdminPaymentsPage: React.FC = () => {
   };
   
   // Función para cargar los pagos con los filtros actuales
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -84,12 +80,24 @@ const AdminPaymentsPage: React.FC = () => {
       
       setPayments(result.payments);
       setTotalPayments(result.total);
-    } catch (error: any) {
-      showError('Error', error.message || 'Error al cargar los pagos');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar los pagos';
+      showError('Error', errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, currentPage, itemsPerPage]);
+  
+  // Efecto para cargar los pagos iniciales
+  useEffect(() => {
+    loadPayments();
+    loadUsers();
+  }, [loadPayments]);
+
+  // Efecto para recargar pagos cuando cambian los filtros o la página
+  useEffect(() => {
+    loadPayments();
+  }, [loadPayments]);
   
   // Función para aplicar los filtros
   const applyFilters = () => {
@@ -128,9 +136,10 @@ const AdminPaymentsPage: React.FC = () => {
         
         // Recargar los pagos
         loadPayments();
-      } catch (error: any) {
+      } catch (error: unknown) {
         closeLoading();
-        showError('Error', error.message || 'Error al eliminar el pago');
+        const errorMessage = error instanceof Error ? error.message : 'Error al eliminar el pago';
+        showError('Error', errorMessage);
       }
     }
   };
@@ -172,7 +181,7 @@ const AdminPaymentsPage: React.FC = () => {
             
             <Button
               onClick={() => setShowFilters(!showFilters)}
-              variant={hasActiveFilters ? "outline-warning" : "outline"}
+              variant={hasActiveFilters ? "secondary" : "outline"}
               className={`flex items-center gap-2 ${hasActiveFilters ? 'border-warning-500 text-warning-700' : ''}`}
             >
               <FiltersIcon className="w-4 h-4" />
@@ -214,22 +223,24 @@ const AdminPaymentsPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Usuario</label>
-                <Select 
-                  value={filters.userId?.toString() || ''} 
-                  onChange={(e) => setFilters({...filters, userId: e.target.value ? Number(e.target.value) : undefined})}
+                <SearchableSelect
+                  options={[
+                    { value: '', label: 'Todos los usuarios' },
+                    ...users.map(user => ({ value: user.id, label: user.name }))
+                  ]}
+                  value={filters.userId?.toString() || ''}
+                  onChange={(value) => setFilters({...filters, userId: value ? Number(value) : undefined})}
+                  placeholder="Buscar usuario..."
+                  searchPlaceholder="Buscar por nombre..."
+                  emptyText="No se encontraron usuarios"
                   className="w-full"
-                >
-                  <option value="">Todos los usuarios</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>{user.name}</option>
-                  ))}
-                </Select>
+                />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Mes</label>
                 <Select 
-                  value={filters.month.toString()} 
+                  value={(filters.month || 0).toString()} 
                   onChange={(e) => setFilters({...filters, month: Number(e.target.value)})}
                   className="w-full"
                 >
@@ -259,7 +270,7 @@ const AdminPaymentsPage: React.FC = () => {
                 <label className="block text-sm font-medium mb-1">Tipo de cuota</label>
                 <Select 
                   value={filters.paymentType || 'all'} 
-                  onChange={(e) => setFilters({...filters, paymentType: e.target.value as any})}
+                  onChange={(e) => setFilters({...filters, paymentType: e.target.value as 'normal' | 'maintenance' | 'all'})}
                   className="w-full"
                 >
                   <option value="all">Todos los tipos</option>
@@ -379,7 +390,7 @@ const AdminPaymentsPage: React.FC = () => {
                           </Button>
                           <Button
                             size="xs"
-                            variant="outline-danger"
+                            variant="outline"
                             className="p-1"
                             onClick={() => handleDeletePayment(payment.id)}
                             title="Eliminar"

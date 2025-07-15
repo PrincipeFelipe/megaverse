@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { consumptionPaymentsService } from '../../services/consumptionPaymentsService';
-import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
+import { adminUserService, productService } from '../../services/api';
+import { SearchableSelect } from '../ui/SearchableSelect';
+import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import { showError } from '../../utils/alerts';
+import { User, Product } from '../../types';
 
 interface UnpaidConsumption {
   id: number;
@@ -23,6 +26,38 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [filterUser, setFilterUser] = useState<string>('');
   const [filterProduct, setFilterProduct] = useState<string>('');
+  
+  // Estados para las listas de usuarios y productos
+  const [users, setUsers] = useState<User[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // Función para cargar usuarios
+  const loadUsers = async () => {
+    try {
+      const usersData = await adminUserService.getAllUsers();
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Error al cargar usuarios:', error);
+    }
+  };
+
+  // Función para cargar productos
+  const loadProducts = async () => {
+    try {
+      const productsData = await productService.getAllProducts();
+      setProducts(productsData);
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
+    }
+  };
+
+  // Cargar usuarios y productos al montar el componente
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      loadUsers();
+      loadProducts();
+    }
+  }, [user]);
   
   // Cargar todos los consumos no pagados
   useEffect(() => {
@@ -202,24 +237,34 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Filtrar por usuario
           </label>
-          <input
-            type="text"
+          <SearchableSelect
+            options={[
+              { value: '', label: 'Todos los usuarios' },
+              ...users.map(user => ({ value: user.name, label: user.name }))
+            ]}
             value={filterUser}
-            onChange={(e) => setFilterUser(e.target.value)}
-            placeholder="Nombre de usuario..."
-            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            onChange={(value) => setFilterUser(value.toString())}
+            placeholder="Buscar usuario..."
+            searchPlaceholder="Buscar por nombre..."
+            emptyText="No se encontraron usuarios"
+            className="w-full"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Filtrar por producto
           </label>
-          <input
-            type="text"
+          <SearchableSelect
+            options={[
+              { value: '', label: 'Todos los productos' },
+              ...products.map(product => ({ value: product.name, label: product.name }))
+            ]}
             value={filterProduct}
-            onChange={(e) => setFilterProduct(e.target.value)}
-            placeholder="Nombre de producto..."
-            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            onChange={(value) => setFilterProduct(value.toString())}
+            placeholder="Buscar producto..."
+            searchPlaceholder="Buscar por nombre..."
+            emptyText="No se encontraron productos"
+            className="w-full"
           />
         </div>
       </div>
