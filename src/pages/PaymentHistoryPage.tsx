@@ -5,7 +5,7 @@ import { paymentsService } from '../services/paymentsService';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Table } from '../components/ui/Table';
-import { showError, showLoading, closeLoading, showSuccess, showConfirm } from '../utils/alerts';
+import { showError, showLoading, closeLoading } from '../utils/alerts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { PayConsumptionsModal } from '../components/ui/PayConsumptionsModal';
@@ -13,6 +13,7 @@ import { ConsumptionPayment } from '../services/consumptionPaymentsService';
 import { Payment, PaymentFilters } from '../types/payments';
 import { useNotifications } from '../hooks/useNotifications';
 import { AlertTriangle } from 'lucide-react';
+import { UserLayout } from '../components/layout/UserLayout';
 
 // Estilos específicos para la alineación de tablas
 import '../styles/table-alignment-fix.css';
@@ -205,7 +206,8 @@ export function PaymentHistoryPage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <UserLayout>
+      <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -579,6 +581,7 @@ export function PaymentHistoryPage() {
           rejectedPayment={rejectedPaymentToRetry}
         />
       )}
-    </div>
+      </div>
+    </UserLayout>
   );
 }
