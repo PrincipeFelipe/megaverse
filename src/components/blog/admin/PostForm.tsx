@@ -4,6 +4,10 @@ import { blogService } from '../../../services/blogService';
 import { X } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { BlogEditor } from './BlogEditor';
+import { createModuleLogger } from '../../../utils/loggerExampleUsage';
+
+const postFormLogger = createModuleLogger('POST_FORM');
+
 // Importar TinyMCE desde la instalación local
 import 'tinymce/tinymce';
 import 'tinymce/models/dom/model';
@@ -125,9 +129,15 @@ export const PostForm: React.FC<PostFormProps> = ({
   // Cargar datos del post si estamos editando
   useEffect(() => {
     if (post && categories.length > 0 && tags.length > 0) {
-      console.log('Cargando datos del post para edición:', post);
-      console.log('Contenido del post:', post.content);
-      console.log('Estado del post:', post.status, typeof post.status);
+      postFormLogger.debug('Cargando datos del post para edición', { 
+        postId: post.id,
+        post 
+      });
+      postFormLogger.debug('Contenido y estado del post', { 
+        content: post.content ? `${post.content.substring(0, 100)}...` : 'Vacío',
+        status: post.status,
+        statusType: typeof post.status
+      });
       
       // Asegurarse de que status siempre tiene un valor válido y es un string
       let status = 'draft';
@@ -154,7 +164,7 @@ export const PostForm: React.FC<PostFormProps> = ({
       const postTagIds: string[] = [];
       
       if (post.tags && Array.isArray(post.tags)) {
-        console.log('Tags recibidos del post:', post.tags);
+        postFormLogger.debug('Tags recibidos del post', { tags: post.tags });
         
         // Para cada tag, extraemos el ID como string
         for (const tag of post.tags) {
@@ -178,7 +188,7 @@ export const PostForm: React.FC<PostFormProps> = ({
         }
       }
       
-      console.log('Tags procesados (IDs como strings):', postTagIds);
+      postFormLogger.debug('Tags procesados como IDs string', { postTagIds });
       
       // Asegurar que el status sea del tipo correcto
       const typedStatus = (status === 'published' ? 'published' : 'draft') as 'draft' | 'published';
@@ -196,21 +206,20 @@ export const PostForm: React.FC<PostFormProps> = ({
       });
       
       // Mensajes de diagnóstico
-      console.log('Contenido establecido:', post.content ? post.content.substring(0, 50) + '...' : 'Vacío');
-      console.log('Estado establecido:', typedStatus);
+      postFormLogger.debug('Datos del formulario establecidos', {
+        contentPreview: post.content ? `${post.content.substring(0, 50)}...` : 'Vacío',
+        status: typedStatus,
+        formData: {
+          title: post.title,
+          category: post.category,
+          category_id: categoryId,
+          status: typedStatus,
+          contentLength: post.content?.length || 0
+        }
+      });
       
       // Establecer los tags seleccionados
       setSelectedTags(postTagIds);
-      
-      console.log('Datos finales cargados en el formulario:', {
-        title: post.title,
-        category: post.category,
-        category_id: categoryId,
-        status: typedStatus,
-        content: post.content ? post.content.substring(0, 50) + '...' : 'No content',
-        content_length: post.content ? post.content.length : 0,
-        tags: postTagIds
-      });
     } else if (!post) {
       // Reset al crear un nuevo post
       setFormData({
@@ -352,7 +361,7 @@ export const PostForm: React.FC<PostFormProps> = ({
         const filename = getFilenameFromUrl(imageUrl);
         if (filename) {
           try {
-            console.log(`Eliminando imagen no utilizada: ${filename}`);
+            postFormLogger.debug('Eliminando imagen no utilizada', { filename });
             await fetch(`${API_URL}/uploads/blog/${filename}`, {
               method: 'DELETE',
               headers: { 'Authorization': `Bearer ${token}` }
@@ -381,8 +390,10 @@ export const PostForm: React.FC<PostFormProps> = ({
 
     // Convertir los tags seleccionados a números para el backend
     const numericTags = selectedTags.map(tag => Number(tag)).filter(id => !isNaN(id));
-    console.log('Tags seleccionados para enviar:', selectedTags);
-    console.log('Tags convertidos a números para enviar:', numericTags);
+    postFormLogger.debug('Tags preparados para envío', {
+      selectedTags,
+      numericTags
+    });
 
     // Preparar datos para enviar al backend
     const dataToSubmit: Partial<BlogPost> = {
@@ -399,7 +410,7 @@ export const PostForm: React.FC<PostFormProps> = ({
     
     // La validación de requisitos para Instagram ha sido eliminada
     
-    console.log('Enviando datos del formulario:', JSON.stringify(dataToSubmit, null, 2));
+    postFormLogger.debug('Enviando datos del formulario', { dataToSubmit });
 
     try {
       await onSubmit(dataToSubmit);

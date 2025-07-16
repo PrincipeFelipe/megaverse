@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthContextType, User } from '../types';
 import { authService } from '../services/api';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+const authContextLogger = createModuleLogger('AUTH_CONTEXT');
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -76,9 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Nueva función para actualizar el usuario
   const updateUserData = async () => {
     try {
-      console.log('🔄 AuthContext: Iniciando actualización de usuario...');
+      authContextLogger.debug('Iniciando actualización de usuario');
       const userData = await authService.getProfile();
-      console.log('🔄 AuthContext: Datos obtenidos del servidor:', userData);
+      authContextLogger.debug('Datos obtenidos del servidor', { userData });
       
       // Forzar actualización incrementando el contador
       setUpdateCounter(prev => prev + 1);
@@ -87,13 +90,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Adicional: forzar re-render con un pequeño delay
       setTimeout(() => {
         setUser(() => ({ ...userData }));
-        console.log('🔄 AuthContext: Forzado re-render del usuario');
+        authContextLogger.debug('Forzado re-render del usuario');
       }, 50);
       
-      console.log('🔄 AuthContext: Usuario actualizado en contexto');
+      authContextLogger.info('Usuario actualizado en contexto');
       return userData;
     } catch (error) {
-      console.error('🔄 AuthContext: Error al actualizar datos de usuario:', error);
+      authContextLogger.error('Error al actualizar datos de usuario', { error });
       throw error;
     }
   };

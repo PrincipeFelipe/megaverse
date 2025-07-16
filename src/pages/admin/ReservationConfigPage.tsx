@@ -6,6 +6,9 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { ReservationConfig, ConfigResponse } from '../../types';
 import { configService } from '../../services/api';
 import { showSuccess, showError, showLoading, closeLoading } from '../../utils/alerts';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+const reservationConfigLogger = createModuleLogger('RESERVATION_CONFIG');
 
 const ReservationConfigPage: React.FC = () => {
   const [config, setConfig] = useState<ReservationConfig | null>(null);
@@ -58,10 +61,10 @@ const ReservationConfigPage: React.FC = () => {
           setMaintenanceFee(configData.maintenance_fee);
         }
         if(configData.entrance_fee !== undefined) {
-          console.log('Cargando entrance_fee desde configuración:', configData.entrance_fee);
+          reservationConfigLogger.debug('Cargando entrance_fee desde configuración', { entrance_fee: configData.entrance_fee });
           setEntranceFee(configData.entrance_fee);
         } else {
-          console.log('⚠️ entrance_fee no está definido en la configuración');
+          reservationConfigLogger.warn('entrance_fee no está definido en la configuración');
         }} catch (err) {
         const error = err as Error;
         console.error('Error al cargar la configuración:', error);
@@ -93,7 +96,7 @@ const ReservationConfigPage: React.FC = () => {
         setMinTimeBetween(defaultConfig.min_time_between_reservations);
         setNormalFee(defaultConfig.normal_fee);
         setMaintenanceFee(defaultConfig.maintenance_fee);
-        console.log('Usando entrance_fee por defecto:', defaultConfig.entrance_fee);
+        reservationConfigLogger.debug('Usando configuración por defecto', { entrance_fee: defaultConfig.entrance_fee });
         setEntranceFee(defaultConfig.entrance_fee);
       } finally {
         setLoading(false);
@@ -109,7 +112,7 @@ const ReservationConfigPage: React.FC = () => {
       showLoading('Guardando configuración...');
       
       // Log para depuración
-      console.log('Datos que se enviarán:', {
+      reservationConfigLogger.debug('Datos que se enviarán para actualizar configuración', {
         max_hours_per_reservation: maxHours,
         max_reservations_per_user_per_day: maxReservations,
         min_hours_in_advance: minHoursAdvance,
@@ -123,7 +126,10 @@ const ReservationConfigPage: React.FC = () => {
         min_time_between_reservations: minTimeBetween
       });
       
-      console.log('Valor específico de entrance_fee:', entranceFee, 'tipo:', typeof entranceFee);
+      reservationConfigLogger.debug('Validación de entrance_fee antes de envío', { 
+        entrance_fee: entranceFee, 
+        type: typeof entranceFee 
+      });
       
       const updatedConfig: ConfigResponse = await configService.updateConfig({
         max_hours_per_reservation: maxHours,

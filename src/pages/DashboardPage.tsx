@@ -11,6 +11,10 @@ import { cleaningDutyService, CleaningAssignment } from '../services/cleaningDut
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import { UserLayout } from '../components/layout/UserLayout';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger para el Dashboard
+const dashboardLogger = createModuleLogger('DASHBOARD');
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -29,10 +33,12 @@ export const DashboardPage: React.FC = () => {
         const date = new Date(user.membership_date);
         if (!isNaN(date.getTime())) {
           return format(date, 'MMMM yyyy', { locale: es });
+        }        } catch (error) {
+          dashboardLogger.error('Error al formatear membership_date', { 
+            error: error instanceof Error ? error.message : error,
+            membership_date: user?.membership_date
+          });
         }
-      } catch (error) {
-        console.warn('Error al formatear membership_date:', error);
-      }
     }
     
     // Si no hay membership_date válida, usar createdAt
@@ -43,7 +49,9 @@ export const DashboardPage: React.FC = () => {
           return format(date, 'MMMM yyyy', { locale: es });
         }
       } catch (error) {
-        console.warn('Error al formatear createdAt:', error);
+        dashboardLogger.warn('Error al formatear createdAt', { 
+          error: error instanceof Error ? error.message : error 
+        });
       }
     }
     
@@ -80,15 +88,21 @@ export const DashboardPage: React.FC = () => {
             const debtData = await consumptionPaymentService.getUserDebt();
             setUserDebt(debtData.currentDebt);
           } catch (error) {
-            console.error('Error al obtener deuda del usuario:', error);
+            dashboardLogger.error('Error al obtener deuda del usuario', { 
+              error: error instanceof Error ? error.message : error,
+              userId: user?.id
+            });
             setUserDebt({ unpaid: 0, pendingApproval: 0, total: 0 }); // Valor por defecto
           }
           
           // Obtener turno de limpieza del usuario actual
           try {
-            console.log("Obteniendo asignaciones de limpieza para el usuario:", user.id);
+            dashboardLogger.debug('Obteniendo asignaciones de limpieza', { userId: user.id });
             const currentAssignments = await cleaningDutyService.getCurrentAssignments();
-            console.log("Asignaciones obtenidas:", currentAssignments);
+            dashboardLogger.debug('Asignaciones obtenidas', { 
+              count: currentAssignments.length,
+              userId: user.id 
+            });
             
             if (currentAssignments.length > 0) {
               // Comprobación por ID exacto - solo turnos pendientes
@@ -103,16 +117,23 @@ export const DashboardPage: React.FC = () => {
                 );
               }
               
-              console.log("Turno pendiente del usuario:", userCleaningDuty);
+              dashboardLogger.debug('Turno pendiente encontrado', { 
+                userId: user.id,
+                hasAssignment: !!userCleaningDuty,
+                assignmentId: userCleaningDuty?.id
+              });
               setCleaningDuty(userCleaningDuty || null);
             } else {
-              console.log("No hay asignaciones de limpieza actuales");
+              dashboardLogger.info('No hay asignaciones de limpieza actuales');
               
               // Alternativa: Hacer una consulta directa al backend por las asignaciones del usuario
               try {
-                console.log("Intentando obtener asignaciones directamente para el usuario:", user.id);
+                dashboardLogger.debug('Intentando obtener asignaciones directamente', { userId: user.id });
                 const userHistory = await cleaningDutyService.getUserHistory(user.id);
-                console.log("Historial de limpieza del usuario:", userHistory);
+                dashboardLogger.debug('Historial de limpieza obtenido', { 
+                  count: userHistory.length,
+                  userId: user.id 
+                });
                 
                 // Filtrar para encontrar asignaciones actuales
                 const now = new Date();
@@ -122,20 +143,33 @@ export const DashboardPage: React.FC = () => {
                   return startDate <= now && endDate >= now;
                 });
                 
-                console.log("Asignación actual del usuario (por historial):", currentAssignment);
+                dashboardLogger.debug('Asignación actual encontrada por historial', { 
+                  userId: user.id,
+                  hasCurrentAssignment: !!currentAssignment,
+                  assignmentId: currentAssignment?.id
+                });
                 if (currentAssignment) {
                   setCleaningDuty(currentAssignment);
                 }
               } catch (historyErr) {
-                console.error("Error al obtener historial de limpieza del usuario:", historyErr);
+                dashboardLogger.error('Error al obtener historial de limpieza', { 
+                  error: historyErr instanceof Error ? historyErr.message : historyErr,
+                  userId: user.id
+                });
               }
             }
           } catch (err) {
-            console.error("Error al obtener turno de limpieza:", err);
+            dashboardLogger.error('Error al obtener turno de limpieza', { 
+              error: err instanceof Error ? err.message : err,
+              userId: user?.id
+            });
           }
         }
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        dashboardLogger.error('Error cargando datos del dashboard', { 
+          error: error instanceof Error ? error.message : error,
+          userId: user?.id
+        });
       } finally {
         setLoading(false);
       }
@@ -207,7 +241,7 @@ export const DashboardPage: React.FC = () => {
 
       {/* Cleaning Duty Alert - Mostramos de forma prominente */}
       {/* Log estado */}
-      <>{(() => { console.log("Estado de cleaningDuty en render:", cleaningDuty); return null; })()}</>
+      <>{(() => { dashboardLogger.debug('Estado de cleaningDuty en render', { hasCleaningDuty: !!cleaningDuty, cleaningDutyId: cleaningDuty?.id }); return null; })()}</>
       
       {cleaningDuty ? (
         <motion.div
@@ -256,9 +290,12 @@ export const DashboardPage: React.FC = () => {
                             // También podríamos recargar todos los datos
                             // pero no es necesario porque ya hemos quitado el turno de limpieza
                             // y sabemos que está marcado como completado
-                          }
-                        } catch (err) {
-                          console.error('Error al actualizar el estado del turno de limpieza:', err);
+                          }                          } catch (err) {
+                          dashboardLogger.error('Error al actualizar el estado del turno de limpieza', { 
+                            error: err instanceof Error ? err.message : err,
+                            cleaningDutyId: cleaningDuty?.id,
+                            userId: user?.id
+                          });
                           addNotification({
                             type: 'error',
                             title: 'Error',

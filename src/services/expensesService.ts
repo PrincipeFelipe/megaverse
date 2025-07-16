@@ -6,6 +6,10 @@ import {
   ExpenseFilters
 } from '../types/expenses';
 import { fetchWithAuth } from './api';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger para el servicio de gastos
+const expensesLogger = createModuleLogger('EXPENSES');
 
 /**
  * Servicio para la gestión de gastos (pagos realizados por la asociación)
@@ -41,7 +45,7 @@ export const expensesService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al obtener los gastos:', error);
+      expensesLogger.error('Error al obtener los gastos:', error);
       throw error;
     }
   },
@@ -67,7 +71,7 @@ export const expensesService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al crear el gasto:', error);
+      expensesLogger.error('Error al crear el gasto:', error);
       throw error;
     }
   },
@@ -93,7 +97,7 @@ export const expensesService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al actualizar el gasto:', error);
+      expensesLogger.error('Error al actualizar el gasto:', error);
       throw error;
     }
   },
@@ -115,7 +119,7 @@ export const expensesService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al eliminar el gasto:', error);
+      expensesLogger.error('Error al eliminar el gasto:', error);
       throw error;
     }
   },
@@ -135,7 +139,7 @@ export const expensesService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al obtener el gasto:', error);
+      expensesLogger.error('Error al obtener el gasto:', error);
       throw error;
     }
   },
@@ -161,7 +165,7 @@ export const expensesService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al generar el informe de gastos:', error);
+      expensesLogger.error('Error al generar el informe de gastos:', error);
       throw error;
     }
   },
@@ -180,7 +184,7 @@ export const expensesService = {
             0
           );
           if (total > 0) {
-            console.log("Total obtenido del informe de gastos:", total);
+            expensesLogger.debug("Total obtenido del informe de gastos", { total });
             return total;
           }
         }
@@ -201,7 +205,10 @@ export const expensesService = {
       }
       
       const data = await response.json();
-      console.log("Datos de gastos obtenidos:", data);
+      expensesLogger.debug('Datos de gastos obtenidos', { 
+        data,
+        expensesCount: data?.expenses?.length || 0
+      });
       
       // Calcular el total sumando todos los gastos
       let total = 0;
@@ -213,16 +220,19 @@ export const expensesService = {
             : parseFloat(String(expense.amount));
           
           // Registrar cada gasto para depuración
-          console.log(`Gasto ID ${expense.id}: ${amount}`);
+          expensesLogger.debug('Gasto procesado', { 
+            expenseId: expense.id,
+            amount 
+          });
           
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
       }
       
-      console.log("Total calculado de la lista de gastos:", total);
+      expensesLogger.debug("Total calculado de la lista de gastos", { total });
       return total;
     } catch (error) {
-      console.error('Error al obtener el total de gastos:', error);
+      expensesLogger.error('Error al obtener el total de gastos:', error);
       return 0; // Retornamos 0 en caso de error para evitar que falle la aplicación
     }
   },

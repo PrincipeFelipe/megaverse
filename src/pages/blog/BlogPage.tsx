@@ -4,6 +4,9 @@ import { blogService } from '../../services/blogService';
 import { BlogPost, BlogCategory, BlogTag } from '../../types/blog';
 import { BlogFilters } from '../../components/blog/BlogFilters';
 import { BlogPostList } from '../../components/blog/BlogPostList';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+const blogPageLogger = createModuleLogger('BLOG_PAGE');
 
 const BlogPage: React.FC = () => {
   // Estado para los posts del blog
@@ -47,7 +50,7 @@ const BlogPage: React.FC = () => {
     setError(null);
     
     try {
-      console.log('BlogPage - fetchPosts - Llamando a getAllPosts con isPublicPage=true');
+      blogPageLogger.debug('Llamando a getAllPosts con isPublicPage=true');
       // Pasar true como segundo parámetro para indicar que es la página pública
       // y solo mostrar posts publicados
       const response = await blogService.getAllPosts(filters, true);
@@ -102,7 +105,7 @@ const BlogPage: React.FC = () => {
     tag: string;
     search: string;
   }) => {
-    console.log('Aplicando filtros, manteniendo isPublicPage=true');
+    blogPageLogger.debug('Aplicando filtros manteniendo isPublicPage=true', { newFilters });
     setFilters(prev => ({
       ...prev,
       ...newFilters,

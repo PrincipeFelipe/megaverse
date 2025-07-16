@@ -3,6 +3,11 @@
  */
 
 import { User, Product, Reservation, Table, Notification } from '../types';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger específico para API
+const apiLogger = createModuleLogger('API');
+
 export { configService } from './configService';
 export { paymentsService } from './paymentsService';
 export { uploadService } from './uploadService';
@@ -40,7 +45,7 @@ export const normalizeNumericValues = <T>(data: T): T => {
   }
 
   // Si es un objeto, normalizar cada propiedad
-  const result = { ...(data as object) } as any;
+  const result = { ...(data as Record<string, unknown>) };
   Object.keys(result).forEach(key => {
     result[key] = normalizeNumericValues(result[key]);
   });
@@ -60,7 +65,12 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   
   // Asegurar que la URL esté bien formada
   const fullUrl = `${API_URL}${url.startsWith('/') ? url : '/' + url}`;
-  console.log('fetchWithAuth URL:', fullUrl); // Para depuración
+  apiLogger.debug('Realizando petición autenticada', { 
+    endpoint: url, 
+    method: options.method || 'GET',
+    hasToken: !!token,
+    fullUrl 
+  });
   
   const response = await fetch(fullUrl, {
     ...options,
@@ -79,27 +89,49 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 // Servicios de autenticación
 export const authService = {  
   login: async (username: string, password: string) => {
-    // Log para depuración
-    console.log('API_URL:', API_URL);
-    console.log('API_PATH:', API_PATH);
-    const fullUrl = `${API_URL}/auth/login`;
-    console.log('URL completa de login:', fullUrl);
+    apiLogger.info('Iniciando proceso de login', { username });
     
-    const response = await fetch(fullUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ username, password })
+    // Log para depuración de configuración
+    apiLogger.debug('Configuración de API', { 
+      API_URL, 
+      API_PATH, 
+      fullUrl: `${API_URL}/auth/login` 
     });
     
-    if (!response.ok) {
-      const error = await response.json();
-      console.log('Error de login recibido del servidor:', error);
-      throw new Error(error.error || 'Error al iniciar sesión');
-    }
+    const fullUrl = `${API_URL}/auth/login`;
     
-    return response.json();
+    try {
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        apiLogger.error('Error en respuesta de login', { 
+          status: response.status, 
+          statusText: response.statusText,
+          error 
+        });
+        throw new Error(error.error || 'Error al iniciar sesión');
+      }
+      
+      const result = await response.json();
+      apiLogger.info('Login exitoso', { username, userId: result.user?.id });
+      return result;
+    } catch (error) {
+      if (error instanceof Error) {
+        apiLogger.error('Excepción durante login', { 
+          username, 
+          error: error.message,
+          stack: error.stack 
+        });
+      }
+      throw error;
+    }
   },
   
   register: async (name: string, username: string, email: string, phone: string, dni: string, password: string) => {
@@ -114,7 +146,12 @@ export const authService = {
       membership_date: new Date().toISOString().split('T')[0]
     };
     
-    console.log('Datos de registro enviados (registro normal):', { ...userData, password: '******' });
+    apiLogger.info('Iniciando registro de usuario', { 
+      username, 
+      email, 
+      phone, 
+      membershipDate: userData.membership_date 
+    });
     
     const response = await fetch(`${API_URL}${API_PATH}/auth/register`, {
       method: 'POST',
@@ -124,26 +161,44 @@ export const authService = {
       body: JSON.stringify(userData)
     });
     
-    console.log('Respuesta del registro normal:', response.status, response.statusText);
-    
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error en registro de usuario', { 
+        status: response.status, 
+        statusText: response.statusText, 
+        error: error.error,
+        username 
+      });
       throw new Error(error.error || 'Error al registrarse');
     }
-    
-    return response.json();
+
+    const result = await response.json();
+    apiLogger.info('Usuario registrado exitosamente', { 
+      username, 
+      userId: result.user?.id 
+    });
+    return result;
   },
-    getProfile: async () => {
-    console.log('🔍 API: Obteniendo perfil del usuario...');
+  
+  getProfile: async () => {
+    apiLogger.debug('Obteniendo perfil del usuario');
     const response = await fetchWithAuth('/auth/me');
     
     if (!response.ok) {
-      console.error('🔍 API: Error al obtener perfil:', response.status, response.statusText);
+      apiLogger.error('Error al obtener perfil', { 
+        status: response.status, 
+        statusText: response.statusText,
+        endpoint: '/auth/me'
+      });
       throw new Error('Error al obtener el perfil');
     }
     
     const profileData = await response.json();
-    console.log('🔍 API: Perfil obtenido del servidor:', profileData);
+    apiLogger.info('Perfil obtenido del servidor', { 
+      username: profileData?.username,
+      userId: profileData?.id,
+      hasAvatar: !!profileData?.avatar_url
+    });
     return profileData;
   },  updateProfile: async (userData: {
     name?: string;
@@ -157,7 +212,7 @@ export const authService = {
   }) => {
     try {
       // Limpia los datos para enviar solo los campos que cambiaron
-      const cleanedData: Record<string, any> = {};
+      const cleanedData: Record<string, unknown> = {};
       
       // Incluir solo los campos con valores definidos
       for (const [key, value] of Object.entries(userData)) {
@@ -183,38 +238,86 @@ export const authService = {
       
       return response.json();
     } catch (error) {
-      console.error('Error en updateProfile:', error);
+      apiLogger.error('Error en updateProfile', { 
+        error: error instanceof Error ? error.message : error,
+        userData: Object.keys(userData),
+        hasPassword: !!userData.current_password || !!userData.new_password
+      });
       throw error;
     }
   }
 };
 
 // Servicios de productos
-export const productService = {  getAllProducts: async () => {
-    const response = await fetch(`${API_URL}${API_PATH}/products`);
+export const productService = {  
+  getAllProducts: async () => {
+    apiLogger.info('Obteniendo todos los productos');
     
-    if (!response.ok) {
-      throw new Error('Error al obtener productos');
+    try {
+      const response = await fetch(`${API_URL}${API_PATH}/products`);
+      
+      if (!response.ok) {
+        apiLogger.error('Error en respuesta de productos', { 
+          status: response.status, 
+          statusText: response.statusText 
+        });
+        throw new Error('Error al obtener productos');
+      }
+      
+      const data = await response.json();
+      apiLogger.info('Productos obtenidos exitosamente', { 
+        count: data.length 
+      });
+      
+      // Asegurar que los valores numéricos como price y stock sean realmente números
+      return data.map((product: unknown) => {
+        const p = product as { 
+          price?: unknown; 
+          stock?: unknown; 
+          [key: string]: unknown 
+        };
+        return {
+          ...p,
+          price: typeof p.price === 'number' ? p.price : parseFloat(String(p.price)) || 0,
+          stock: typeof p.stock === 'number' ? p.stock : parseInt(String(p.stock)) || 0
+        };
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        apiLogger.error('Excepción al obtener productos', { 
+          error: error.message,
+          stack: error.stack 
+        });
+      }
+      throw error;
     }
-    
-    const data = await response.json();
-    // Asegurar que los valores numéricos como price y stock sean realmente números
-    return data.map((product: any) => ({
-      ...product,
-      price: typeof product.price === 'number' ? product.price : parseFloat(String(product.price)) || 0,
-      stock: typeof product.stock === 'number' ? product.stock : parseInt(String(product.stock)) || 0
-    }));
   },
-    getProductById: async (id: number) => {
+  getProductById: async (id: number) => {
+    apiLogger.debug('Obteniendo producto por ID', { productId: id });
     const response = await fetch(`${API_URL}${API_PATH}/products/${id}`);
     
     if (!response.ok) {
+      apiLogger.error('Error al obtener producto por ID', { 
+        productId: id,
+        status: response.status,
+        statusText: response.statusText
+      });
       throw new Error('Error al obtener el producto');
     }
     
-    return response.json();
+    const product = await response.json();
+    apiLogger.info('Producto obtenido por ID', { 
+      productId: id,
+      productName: product?.name 
+    });
+    return product;
   },
-    createProduct: async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+  createProduct: async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+    apiLogger.debug('Creando nuevo producto', { 
+      productName: productData.name,
+      price: productData.price 
+    });
+    
     const response = await fetchWithAuth('/products', {
       method: 'POST',
       body: JSON.stringify(productData)
@@ -222,13 +325,28 @@ export const productService = {  getAllProducts: async () => {
     
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error al crear producto', { 
+        productName: productData.name,
+        error: error.error,
+        status: response.status
+      });
       throw new Error(error.error || 'Error al crear el producto');
     }
     
-    return response.json();
+    const newProduct = await response.json();
+    apiLogger.info('Producto creado exitosamente', { 
+      productId: newProduct.id,
+      productName: newProduct.name 
+    });
+    return newProduct;
   },
   
   updateProduct: async (id: number, productData: Partial<Omit<Product, 'id' | 'created_at' | 'updated_at'>>) => {
+    apiLogger.debug('Actualizando producto', { 
+      productId: id,
+      fieldsToUpdate: Object.keys(productData) 
+    });
+    
     const response = await fetchWithAuth(`/products/${id}`, {
       method: 'PUT',
       body: JSON.stringify(productData)
@@ -236,60 +354,104 @@ export const productService = {  getAllProducts: async () => {
     
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error al actualizar producto', { 
+        productId: id,
+        error: error.error,
+        status: response.status
+      });
       throw new Error(error.error || 'Error al actualizar el producto');
     }
     
-    return response.json();
+    const updatedProduct = await response.json();
+    apiLogger.info('Producto actualizado exitosamente', { 
+      productId: id,
+      productName: updatedProduct.name 
+    });
+    return updatedProduct;
   },
   
   deleteProduct: async (id: number) => {
+    apiLogger.debug('Eliminando producto', { productId: id });
+    
     const response = await fetchWithAuth(`/products/${id}`, {
       method: 'DELETE'
     });
     
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error al eliminar producto', { 
+        productId: id,
+        error: error.error,
+        status: response.status
+      });
       throw new Error(error.error || 'Error al eliminar el producto');
     }
     
-    return response.json();
+    const result = await response.json();
+    apiLogger.info('Producto eliminado exitosamente', { productId: id });
+    return result;
   }
 };
 
 // Servicios de mesas
 export const tableService = {  
   getAllTables: async () => {
+    apiLogger.debug('Obteniendo todas las mesas');
     const response = await fetch(`${API_URL}${API_PATH}/tables`);
     
     if (!response.ok) {
+      apiLogger.error('Error al obtener mesas', { 
+        status: response.status,
+        statusText: response.statusText
+      });
       throw new Error('Error al obtener mesas');
     }
     
-    return response.json();
+    const tables = await response.json();
+    apiLogger.info('Mesas obtenidas exitosamente', { count: tables.length });
+    return tables;
   },
-    getTableById: async (id: number) => {
+  getTableById: async (id: number) => {
+    apiLogger.debug('Obteniendo mesa por ID', { tableId: id });
     const response = await fetch(`${API_URL}${API_PATH}/tables/${id}`);
     
     if (!response.ok) {
+      apiLogger.error('Error al obtener mesa por ID', { 
+        tableId: id,
+        status: response.status,
+        statusText: response.statusText
+      });
       throw new Error('Error al obtener la mesa');
     }
     
-    return response.json();
+    const table = await response.json();
+    apiLogger.info('Mesa obtenida por ID', { 
+      tableId: id,
+      tableName: table?.name 
+    });
+    return table;
   }
 };
 
 // Servicios de reservas
 export const reservationService = {
   getAllReservations: async () => {
+    apiLogger.debug('Obteniendo todas las reservas');
     const response = await fetchWithAuth('/reservations');
     
     if (!response.ok) {
+      apiLogger.error('Error al obtener reservas', { 
+        status: response.status,
+        statusText: response.statusText
+      });
       throw new Error('Error al obtener reservas');
     }
     
-    return response.json();
+    const reservations = await response.json();
+    apiLogger.info('Reservas obtenidas exitosamente', { count: reservations.length });
+    return reservations;
   },
-    createReservation: async (reservationData: { 
+  createReservation: async (reservationData: { 
     tableId: number, 
     startTime: string, 
     endTime: string,
@@ -299,6 +461,13 @@ export const reservationService = {
     allDay?: boolean,
     reason?: string
   }) => {
+    apiLogger.debug('Creando nueva reserva', { 
+      tableId: reservationData.tableId,
+      startTime: reservationData.startTime,
+      durationHours: reservationData.durationHours,
+      allDay: reservationData.allDay
+    });
+    
     const response = await fetchWithAuth('/reservations', {
       method: 'POST',
       body: JSON.stringify(reservationData)
@@ -306,10 +475,20 @@ export const reservationService = {
     
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error al crear reserva', { 
+        tableId: reservationData.tableId,
+        error: error.error,
+        status: response.status
+      });
       throw new Error(error.error || 'Error al crear la reserva');
     }
     
-    return response.json();
+    const newReservation = await response.json();
+    apiLogger.info('Reserva creada exitosamente', { 
+      reservationId: newReservation.id,
+      tableId: reservationData.tableId 
+    });
+    return newReservation;
   },
   
   updateReservation: async (id: number, reservationData: { 
@@ -322,6 +501,11 @@ export const reservationService = {
     allDay?: boolean,
     reason?: string
   }) => {
+    apiLogger.debug('Actualizando reserva', { 
+      reservationId: id,
+      fieldsToUpdate: Object.keys(reservationData) 
+    });
+    
     const response = await fetchWithAuth(`/reservations/${id}`, {
       method: 'PUT',
       body: JSON.stringify(reservationData)
@@ -329,13 +513,25 @@ export const reservationService = {
     
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error al actualizar reserva', { 
+        reservationId: id,
+        error: error.error,
+        status: response.status
+      });
       throw new Error(error.error || 'Error al actualizar la reserva');
     }
     
-    return response.json();
+    const updatedReservation = await response.json();
+    apiLogger.info('Reserva actualizada exitosamente', { reservationId: id });
+    return updatedReservation;
   },
   
   updateReservationStatus: async (id: number, status: 'active' | 'cancelled' | 'completed') => {
+    apiLogger.debug('Actualizando estado de reserva', { 
+      reservationId: id,
+      newStatus: status 
+    });
+    
     const response = await fetchWithAuth(`/reservations/${id}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status })
@@ -343,34 +539,63 @@ export const reservationService = {
     
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error al actualizar estado de reserva', { 
+        reservationId: id,
+        status,
+        error: error.error,
+        responseStatus: response.status
+      });
       throw new Error(error.error || 'Error al actualizar la reserva');
     }
     
-    return response.json();
+    const result = await response.json();
+    apiLogger.info('Estado de reserva actualizado exitosamente', { 
+      reservationId: id,
+      newStatus: status 
+    });
+    return result;
   },
   
   deleteReservation: async (id: number) => {
+    apiLogger.debug('Eliminando reserva', { reservationId: id });
+    
     const response = await fetchWithAuth(`/reservations/${id}`, {
       method: 'DELETE'
     });
     
     if (!response.ok) {
       const error = await response.json();
+      apiLogger.error('Error al eliminar reserva', { 
+        reservationId: id,
+        error: error.error,
+        status: response.status
+      });
       throw new Error(error.error || 'Error al eliminar la reserva');
     }
     
-    return response.json();
+    const result = await response.json();
+    apiLogger.info('Reserva eliminada exitosamente', { reservationId: id });
+    return result;
   }
 };
 
 // Servicios de consumos
 export const consumptionService = {
   getAllConsumptions: async () => {
+    apiLogger.debug('Obteniendo todos los consumos');
     const response = await fetchWithAuth('/consumptions');
     
     if (!response.ok) {
+      apiLogger.error('Error al obtener consumos', { 
+        status: response.status,
+        statusText: response.statusText
+      });
       throw new Error('Error al obtener consumos');
     }
+    
+    const consumptions = await response.json();
+    apiLogger.info('Consumos obtenidos exitosamente', { count: consumptions.length });
+    return consumptions;
     
     return response.json();
   },
@@ -427,9 +652,9 @@ export const adminUserService = {  getAllUsers: async (): Promise<User[]> => {
       const data = await response.json();
       
       // Log para verificar que los datos incluyan los campos críticos
-      console.log('getAllUsers - datos recibidos del servidor:', data);
+      apiLogger.debug('getAllUsers - datos recibidos del servidor', { count: data?.length });
       if (data && data.length > 0) {
-        console.log('getAllUsers - primer usuario con campos críticos:', {
+        apiLogger.debug('getAllUsers - primer usuario con campos críticos', {
           phone: data[0].phone,
           dni: data[0].dni,
           membership_date: data[0].membership_date,
@@ -499,7 +724,7 @@ export const adminUserService = {  getAllUsers: async (): Promise<User[]> => {
             errorMessage = errorData.error;
           }
           console.error('Respuesta de error completa:', errorData);
-        } catch (e) {
+        } catch {
           console.error('No se pudo parsear la respuesta de error');
         }
         throw new Error(errorMessage);

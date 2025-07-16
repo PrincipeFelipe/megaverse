@@ -7,6 +7,9 @@ import {
 } from '../../services/consumptionPaymentsService';
 import { showSuccess, showError, showConfirm } from '../../utils/alerts';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+const pendingConsumptionsLogger = createModuleLogger('PENDING_CONSUMPTIONS');
 
 const PendingConsumptions: React.FC = () => {
   const { user } = useAuth();
@@ -28,13 +31,18 @@ const PendingConsumptions: React.FC = () => {
         
         // Asegurarnos de que la respuesta tiene la estructura esperada
         if (response && response.consumptions && Array.isArray(response.consumptions)) {
-          console.log("Consumos recibidos:", response.consumptions);
+          pendingConsumptionsLogger.debug("Consumos pendientes recibidos del servidor", { 
+            count: response.consumptions.length,
+            consumptions: response.consumptions 
+          });
           
-          // Verificar los primeros elementos para depurar
+          // Verificar los primeros elementos para depuración
           if (response.consumptions.length > 0) {
-            console.log("Ejemplo de consumo:", response.consumptions[0]);
-            console.log("Tipo de price_per_unit:", typeof response.consumptions[0].price_per_unit);
-            console.log("Valor de price_per_unit:", response.consumptions[0].price_per_unit);
+            pendingConsumptionsLogger.debug("Ejemplo de consumo para validación", { 
+              example: response.consumptions[0],
+              price_per_unit_type: typeof response.consumptions[0].price_per_unit,
+              price_per_unit_value: response.consumptions[0].price_per_unit
+            });
           }
           
           // Aplicamos la función de normalización para asegurar datos consistentes
@@ -78,7 +86,7 @@ const PendingConsumptions: React.FC = () => {
       
       // Log detallado de cada consumo para debug
       const itemId = typeof item === 'object' && item !== null && 'id' in item ? item.id : 'desconocido';
-      console.log(`Consumo ID ${itemId} - datos originales:`, {
+      pendingConsumptionsLogger.debug(`Procesando consumo ID ${itemId}`, {
         valor_original: item,
         tipo_original: typeof item
       });
@@ -104,7 +112,11 @@ const PendingConsumptions: React.FC = () => {
       } else {
         // Evitar división por cero
         price_per_unit = safeQuantity > 0 ? safeTotal / safeQuantity : 0;
-        console.log(`Calculando price_per_unit para ID ${item.id}: ${safeTotal} / ${safeQuantity} = ${price_per_unit}`);
+        pendingConsumptionsLogger.debug(`Calculando price_per_unit para ID ${item.id}`, { 
+          total: safeTotal, 
+          quantity: safeQuantity, 
+          calculated_price_per_unit: price_per_unit 
+        });
       }
       
       const normalizedItem = {
@@ -115,7 +127,7 @@ const PendingConsumptions: React.FC = () => {
       };
       
       // Log de los valores normalizados para verificar
-      console.log(`Consumo ID ${itemId} - datos normalizados:`, {
+      pendingConsumptionsLogger.debug(`Consumo ID ${itemId} normalizado`, {
         price_per_unit: normalizedItem.price_per_unit,
         total_price: normalizedItem.total_price,
         quantity: normalizedItem.quantity,
@@ -210,7 +222,7 @@ const PendingConsumptions: React.FC = () => {
 
     if (confirmed) {
       try {
-        console.log('Enviando datos de pago:', {
+        pendingConsumptionsLogger.debug('Enviando datos de pago', {
           user_id: user!.id,
           amount: totalAmount,
           payment_method: paymentMethod,

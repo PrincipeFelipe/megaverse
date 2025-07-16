@@ -2,6 +2,10 @@
  * Utilidades para manejar fechas y zonas horarias en la aplicación
  */
 import { getHourOffsetForDate, getTimeZoneName, checkDSTIssue } from './dstUtils';
+import { createModuleLogger } from './loggerExampleUsage';
+
+// Crear logger para utilidades de fecha
+const dateLogger = createModuleLogger('DATE_UTILS');
 
 /**
  * Crea una fecha en UTC a partir de una fecha local.
@@ -58,10 +62,16 @@ export function extractLocalTime(isoString: string): Date {
   // Verificar posibles problemas con cambios de horario
   const dstIssue = checkDSTIssue(localDate);
   if (dstIssue.hasPotentialIssue) {
-    console.warn(`⚠️ ADVERTENCIA: ${dstIssue.message}`);
+    dateLogger.warn('ADVERTENCIA DST', { message: dstIssue.message });
   }
   
-  console.log(`Extracting local time: ISO=${isoString}, Original UTC hours=${utcDate.getUTCHours()}, Adjusted=${localDate.getHours()}, Using offset=${hourOffset} (${tzName})`);
+  dateLogger.debug('Extracting local time', { 
+    isoString,
+    originalUTCHours: utcDate.getUTCHours(),
+    adjustedHours: localDate.getHours(),
+    offset: hourOffset,
+    timezone: tzName
+  });
   return localDate;
 }
 

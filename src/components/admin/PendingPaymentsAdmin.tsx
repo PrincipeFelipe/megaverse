@@ -3,6 +3,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { consumptionPaymentsService, ConsumptionPayment, Consumption } from '../../services/consumptionPaymentsService';
 import { showSuccess, showError, showConfirm } from '../../utils/alerts';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+const pendingPaymentsAdminLogger = createModuleLogger('PENDING_PAYMENTS_ADMIN');
 
 interface PaymentDetailsModalProps {
   paymentId: number;
@@ -278,9 +281,12 @@ const PendingPaymentsAdmin: React.FC = () => {
     
     try {
       setLoading(true);
-      console.log('Cargando pagos pendientes...');
+      pendingPaymentsAdminLogger.info('Cargando pagos pendientes');
       const payments = await consumptionPaymentsService.getPendingPayments();
-      console.log('Pagos pendientes recibidos:', payments);
+      pendingPaymentsAdminLogger.debug('Pagos pendientes recibidos', { 
+        paymentsCount: payments.length,
+        payments: payments
+      });
       setPendingPayments(payments);
     } catch (error) {
       console.error('Error al cargar pagos pendientes:', error);

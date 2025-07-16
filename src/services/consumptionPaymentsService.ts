@@ -3,6 +3,10 @@
  */
 
 import { fetchWithAuth } from './api';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger para el servicio de pagos de consumo
+const consumptionPaymentsLogger = createModuleLogger('CONSUMPTION_PAYMENTS');
 
 // Tipos para los pagos de consumiciones
 export interface ConsumptionPayment {
@@ -109,7 +113,10 @@ export const consumptionPaymentsService = {  // Obtener la deuda actual del usua
     }
     
     const data = await response.json() as DebtInfoResponse;
-    console.log('Respuesta de API de deuda (servicio):', data);
+    consumptionPaymentsLogger.debug('Respuesta de API de deuda (servicio)', { 
+      hasData: !!data,
+      hasCurrentDebt: !!data.currentDebt 
+    });
     
     // Normalizar la estructura de la respuesta
     let currentDebt = 0;
@@ -130,7 +137,10 @@ export const consumptionPaymentsService = {  // Obtener la deuda actual del usua
       paymentHistory: data.paymentHistory || []
     };
     
-    console.log('Datos de deuda normalizados:', normalizedData);
+    consumptionPaymentsLogger.debug('Datos de deuda normalizados', { 
+      currentDebt,
+      paymentHistoryCount: normalizedData.paymentHistory.length 
+    });
     return normalizedData;
   },
     // Registrar un nuevo pago de consumiciones
@@ -290,23 +300,30 @@ export const consumptionPaymentsService = {  // Obtener la deuda actual del usua
 
   // Obtener pagos pendientes (para administradores)
   getPendingPayments: async (): Promise<ConsumptionPayment[]> => {
-    console.log('Llamando a /consumption-payments/pending');
+    consumptionPaymentsLogger.debug('Llamando a /consumption-payments/pending');
     const response = await fetchWithAuth('/consumption-payments/pending');
     
-    console.log('Respuesta del servidor:', response.status, response.statusText);
+    consumptionPaymentsLogger.debug('Respuesta del servidor', { 
+      status: response.status,
+      statusText: response.statusText 
+    });
     
     if (!response.ok) {
       const error = await response.json();
-      console.error('Error del servidor:', error);
+      consumptionPaymentsLogger.error('Error del servidor', { error });
       throw new Error(error.error || 'Pago no encontrado');
     }
     
     const data = await response.json();
-    console.log('Datos recibidos del servidor:', data);
+    consumptionPaymentsLogger.debug('Datos recibidos del servidor', { 
+      isArray: Array.isArray(data),
+      dataType: typeof data,
+      count: Array.isArray(data) ? data.length : 'N/A'
+    });
     
     // La API puede devolver directamente un array o un objeto con propiedad 'payments'
     if (Array.isArray(data)) {
-      console.log('Datos son array, devolviendo directamente');
+      consumptionPaymentsLogger.debug('Datos son array, devolviendo directamente');
       return data;
     } else if (data && Array.isArray(data.payments)) {
       console.log('Datos tienen propiedad payments, devolviendo data.payments');

@@ -6,6 +6,9 @@ import { SearchableSelect } from '../ui/SearchableSelect';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import { showError } from '../../utils/alerts';
 import { User, Product } from '../../types';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+const allUnpaidConsumptionsAdminLogger = createModuleLogger('AllUnpaidConsumptionsAdmin');
 
 interface UnpaidConsumption {
   id: number;
@@ -69,14 +72,22 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
         const response = await consumptionPaymentsService.getAllUnpaidConsumptions();
         
         // Agregamos logs de depuración
-        console.log("Respuesta de consumos (admin):", response);
+        allUnpaidConsumptionsAdminLogger.debug('Respuesta de consumos (admin)', { 
+          response: response,
+          responseType: typeof response,
+          isArray: Array.isArray(response),
+          responseKeys: typeof response === 'object' ? Object.keys(response) : null
+        });
         
         if (Array.isArray(response)) {
           // Verificar los primeros elementos para depurar
           if (response.length > 0) {
-            console.log("Ejemplo de consumo (admin):", response[0]);
-            console.log("Tipo de price_per_unit (admin):", typeof response[0].price_per_unit);
-            console.log("Valor de price_per_unit (admin):", response[0].price_per_unit);
+            allUnpaidConsumptionsAdminLogger.debug('Análisis de datos de consumo (array response)', { 
+              sampleConsumption: response[0],
+              pricePerUnitType: typeof response[0].price_per_unit,
+              pricePerUnitValue: response[0].price_per_unit,
+              totalItems: response.length
+            });
           }
           
           // Normalizar los datos antes de establecerlos
@@ -85,9 +96,12 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
         } else if (response && Array.isArray(response.consumptions)) {
           // Verificar los primeros elementos para depurar
           if (response.consumptions.length > 0) {
-            console.log("Ejemplo de consumo (admin - object response):", response.consumptions[0]);
-            console.log("Tipo de price_per_unit (admin - object response):", typeof response.consumptions[0].price_per_unit);
-            console.log("Valor de price_per_unit (admin - object response):", response.consumptions[0].price_per_unit);
+            allUnpaidConsumptionsAdminLogger.debug('Análisis de datos de consumo (object response)', { 
+              sampleConsumption: response.consumptions[0],
+              pricePerUnitType: typeof response.consumptions[0].price_per_unit,
+              pricePerUnitValue: response.consumptions[0].price_per_unit,
+              totalItems: response.consumptions.length
+            });
           }
           
           // Normalizar los datos antes de establecerlos
@@ -108,7 +122,7 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
   }, [user]);
 
   // Función para normalizar los datos de consumo
-  const normalizeConsumptionData = (data: any[]): UnpaidConsumption[] => {
+  const normalizeConsumptionData = (data: unknown[]): UnpaidConsumption[] => {
     return data.map(item => {
       // Función auxiliar para convertir a número de manera segura
       const safeParseFloat = (value: unknown): number => {
@@ -128,10 +142,11 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
       };
       
       // Log detallado de cada consumo para debug
-      const itemId = typeof item === 'object' && item !== null ? item.id : 'desconocido';
-      console.log(`Consumo ID ${itemId} - datos originales (admin):`, {
-        valor_original: item,
-        tipo_original: typeof item
+      const itemId = typeof item === 'object' && item !== null && 'id' in item ? (item as {id: unknown}).id : 'desconocido';
+      allUnpaidConsumptionsAdminLogger.debug('Datos originales de consumo', {
+        itemId: itemId,
+        originalValue: item,
+        originalType: typeof item
       });
       
       // Verificar si el item es un objeto válido
@@ -155,7 +170,13 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
       } else {
         // Evitar división por cero
         price_per_unit = safeQuantity > 0 ? safeTotal / safeQuantity : 0;
-        console.log(`Calculando price_per_unit para ID ${item.id} (admin): ${safeTotal} / ${safeQuantity} = ${price_per_unit}`);
+        allUnpaidConsumptionsAdminLogger.debug('Calculando price_per_unit', {
+          itemId: itemId,
+          calculation: `${safeTotal} / ${safeQuantity} = ${price_per_unit}`,
+          safeTotal,
+          safeQuantity,
+          result: price_per_unit
+        });
       }
       
       const normalizedItem = {
@@ -166,11 +187,14 @@ const AllUnpaidConsumptionsAdmin: React.FC = () => {
       };
       
       // Log de los valores normalizados para verificar
-      console.log(`Consumo ID ${itemId} - datos normalizados (admin):`, {
-        price_per_unit: normalizedItem.price_per_unit,
-        total_price: normalizedItem.total_price,
-        quantity: normalizedItem.quantity,
-        formateados: {
+      allUnpaidConsumptionsAdminLogger.debug('Datos normalizados de consumo', {
+        itemId: itemId,
+        normalizedData: {
+          price_per_unit: normalizedItem.price_per_unit,
+          total_price: normalizedItem.total_price,
+          quantity: normalizedItem.quantity
+        },
+        formattedData: {
           price_per_unit: formatCurrency(normalizedItem.price_per_unit),
           total_price: formatCurrency(normalizedItem.total_price)
         }

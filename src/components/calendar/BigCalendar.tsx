@@ -8,6 +8,9 @@ import { Reservation, Table } from '../../types';
 import { extractLocalTime } from '../../utils/dateUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import Next7DaysView from './Next7DaysView';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+const bigCalendarLogger = createModuleLogger('BIG_CALENDAR');
 
 // Configurar el localizer con moment
 moment.locale('es');
@@ -136,13 +139,17 @@ const BigCalendar: React.FC<BigCalendarProps> = ({
     const end = extractLocalTime(reservation.end_time);
     
     // Información detallada de depuración para verificar las fechas
-    console.log(`----- RESERVA ID: ${reservation.id} -----`);
-    console.log(`Estado de la reserva: ${reservation.status}`);
-    console.log(`ISO Inicio: ${reservation.start_time}`);
-    console.log(`ISO Fin: ${reservation.end_time}`);
-    console.log(`Local Inicio: ${start.toLocaleString()} (${start.getHours()}:${start.getMinutes()})`);
-    console.log(`Local Fin: ${end.toLocaleString()} (${end.getHours()}:${end.getMinutes()})`);
-    console.log(`Duración: ${(end.getTime() - start.getTime()) / (1000 * 60 * 60)} horas`);
+    bigCalendarLogger.debug(`Procesando reserva ID: ${reservation.id}`, {
+      reservationId: reservation.id,
+      status: reservation.status,
+      start_time_iso: reservation.start_time,
+      end_time_iso: reservation.end_time,
+      start_local: start.toLocaleString(),
+      end_local: end.toLocaleString(),
+      start_time: `${start.getHours()}:${start.getMinutes()}`,
+      end_time: `${end.getHours()}:${end.getMinutes()}`,
+      duration_hours: (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    });
     
     // Obtener la información de la mesa
     const table = tables.find(t => t.id === reservation.table_id);

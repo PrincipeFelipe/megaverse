@@ -1,4 +1,8 @@
 // Utilidades para manejar avatares
+import { createModuleLogger } from './loggerExampleUsage';
+
+// Crear logger para el módulo avatar
+const avatarLogger = createModuleLogger('AVATAR');
 
 /**
  * Obtiene la URL completa del avatar basado en la ruta almacenada
@@ -30,7 +34,7 @@ export const getAvatarUrl = (
   // El problema es que a veces la ruta de avatar incluye incorrectamente "/api/"
   
   // Identificar todos los posibles casos problemáticos
-  console.log(`Procesando ruta de avatar: ${avatarPath}`);
+  avatarLogger.debug('Procesando ruta de avatar', { avatarPath });
   
   let finalPath = avatarPath;
   
@@ -38,13 +42,13 @@ export const getAvatarUrl = (
   // se sirven desde la raíz del servidor, no desde la ruta de la API
   if (finalPath.includes("/api/")) {
     finalPath = finalPath.replace(/\/api\//g, "/");
-    console.log(`  Eliminado /api/ de la ruta: ${finalPath}`);
+    avatarLogger.debug('Eliminado /api/ de la ruta', { finalPath });
   }
   
   // 2. Si la ruta no incluye /uploads/ pero incluye /avatars/, añadir /uploads al principio
   if (!finalPath.includes("/uploads/") && finalPath.includes("/avatars/")) {
     finalPath = `/uploads${finalPath}`;
-    console.log(`  Añadido /uploads al inicio: ${finalPath}`);
+    avatarLogger.debug('Añadido /uploads al inicio', { finalPath });
   }
   
   // Construir la URL final y asegurarse de que no haya barras dobles
@@ -54,10 +58,13 @@ export const getAvatarUrl = (
   if (forceRefresh) {
     const separator = fullUrl.includes('?') ? '&' : '?';
     fullUrl = `${fullUrl}${separator}_t=${Date.now()}`;
-    console.log(`Avatar con timestamp para evitar caché: ${fullUrl}`);
+    avatarLogger.debug('Avatar con timestamp para evitar caché', { fullUrl });
   }
   
-  console.log(`Avatar: ruta original [${avatarPath}] -> URL final [${fullUrl}]`);
+  avatarLogger.debug('Avatar procesado', { 
+    originalPath: avatarPath,
+    finalUrl: fullUrl 
+  });
   
   // Devolver la URL completa
   return fullUrl;

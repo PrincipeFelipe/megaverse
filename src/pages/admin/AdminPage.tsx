@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { Card } from '../../components/ui/Card';
-import { Users, ShoppingCart, Calendar, Clock, Coffee, CreditCard, TrendingUp } from 'lucide-react';
+import { Users, ShoppingCart, Calendar, Clock, Coffee, CreditCard, TrendingUp, Settings } from 'lucide-react';
 import { adminUserService, adminReservationService, productService, adminTableService, paymentsService } from '../../services/api';
 import { expensesService } from '../../services/expensesService';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+// Logger específico para la página de admin
+const adminLogger = createModuleLogger('ADMIN');
 
 export const AdminPage: React.FC = () => {
   // Función para formatear valores monetarios
@@ -35,7 +39,9 @@ export const AdminPage: React.FC = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-          // En un entorno real, podrías tener un endpoint específico para estadísticas
+        adminLogger.info('Cargando estadísticas de admin');
+        
+        // En un entorno real, podrías tener un endpoint específico para estadísticas
         // Aquí simulamos obteniendo datos y calculando estadísticas
         const [users, products, tables, reservations, totalIncome, totalExpenses] = await Promise.all([
           adminUserService.getAllUsers(),
@@ -45,7 +51,21 @@ export const AdminPage: React.FC = () => {
           paymentsService.getTotalIncome(), // Nuevo método que incluye cuotas + consumos
           expensesService.getTotalExpenses() // Método específico para el total de gastos
         ]);
+        
+        adminLogger.debug('Datos estadísticos cargados', { 
+          usersCount: users.length,
+          productsCount: products.length,
+          tablesCount: tables.length,
+          reservationsCount: reservations.length
+        });
           
+        adminLogger.debug('Datos estadísticos cargados', { 
+          usersCount: users.length,
+          productsCount: products.length,
+          tablesCount: tables.length,
+          reservationsCount: reservations.length
+        });
+        
         // Contar reservas activas y de hoy
         const today = new Date().toISOString().split('T')[0];
         const activeReservations = reservations.filter((r) => r.status === 'active').length;
@@ -53,15 +73,20 @@ export const AdminPage: React.FC = () => {
           r.start_time.startsWith(today) && r.status === 'active'
         ).length;
         
-        console.log("Total de ingresos (cuotas + consumos):", totalIncome);
-        console.log("Total de gastos:", totalExpenses);
-              // Convertir explícitamente los valores a número para evitar concatenación
+        adminLogger.debug('Estadísticas financieras obtenidas', { 
+          totalIncome, 
+          totalExpenses 
+        });
+        
+        // Convertir explícitamente los valores a número para evitar concatenación
         const incomeParsed = Number(totalIncome);
         const expensesParsed = Number(totalExpenses);
         
-        console.log("Ingresos después de parseado:", incomeParsed);
-        console.log("Gastos después de parseado:", expensesParsed);
-        console.log("Balance calculado:", incomeParsed - expensesParsed);
+        adminLogger.debug('Estadísticas financieras procesadas', { 
+          incomeParsed, 
+          expensesParsed, 
+          balance: incomeParsed - expensesParsed 
+        });
         
         setStats({
           users: users.length,
@@ -81,8 +106,20 @@ export const AdminPage: React.FC = () => {
             currentYear: incomeParsed  // Actualizado para ser consistente
           }
         });
+        
+        adminLogger.info('Estadísticas de admin cargadas exitosamente', {
+          usersCount: users.length,
+          productsCount: products.length,
+          tablesCount: tables.length,
+          reservationsCount: reservations.length,
+          totalIncome: incomeParsed,
+          totalExpenses: expensesParsed
+        });
       } catch (error) {
-        console.error('Error al cargar estadísticas:', error);
+        adminLogger.error('Error al cargar estadísticas', { 
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
       } finally {
         setLoading(false);
       }
@@ -215,6 +252,13 @@ export const AdminPage: React.FC = () => {
                 <Link to="/admin/consumption-payments" className="block text-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 mx-auto mb-2 text-blue-500"><path d="M2 17h2v4h16v-4h2"></path><path d="M6 7v4a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V7"></path><circle cx="12" cy="5" r="1"></circle><path d="M8 5h1"></path><path d="M15 5h1"></path></svg>
                   <span className="block text-gray-800 dark:text-white font-medium">Consumos Pendientes</span>
+                </Link>
+              </Card>
+              
+              <Card className="p-4 hover:shadow-md transition-shadow">
+                <Link to="/admin/logger" className="block text-center">
+                  <Settings className="w-8 h-8 mx-auto mb-2 text-gray-500" />
+                  <span className="block text-gray-800 dark:text-white font-medium">Sistema de Logging</span>
                 </Link>
               </Card>
             </div>

@@ -1,5 +1,9 @@
 import { Editor } from '@tinymce/tinymce-react';
 import { useRef, useEffect } from 'react';
+import { createModuleLogger } from '../../../utils/loggerExampleUsage';
+
+const blogEditorLogger = createModuleLogger('BLOG_EDITOR');
+
 // Importar TinyMCE desde la instalación local
 import 'tinymce/tinymce';
 import 'tinymce/models/dom/model';
@@ -83,11 +87,11 @@ const deleteImageFromServer = async (url: string): Promise<void> => {
     
     const token = localStorage.getItem('token');
     if (!token) {
-      console.error('Se requiere autenticación para eliminar imágenes');
+      blogEditorLogger.error('Se requiere autenticación para eliminar imágenes');
       return;
     }
     
-    console.log(`Eliminando imagen del servidor: ${filename}`);
+    blogEditorLogger.debug('Eliminando imagen del servidor', { filename });
     
     const response = await fetch(`${API_URL}/uploads/blog/${filename}`, {
       method: 'DELETE',
@@ -97,12 +101,12 @@ const deleteImageFromServer = async (url: string): Promise<void> => {
     });
     
     if (response.ok) {
-      console.log(`Imagen eliminada con éxito: ${filename}`);
+      blogEditorLogger.debug('Imagen eliminada con éxito', { filename });
     } else {
-      console.error(`Error al eliminar imagen ${filename}:`, response.status);
+      blogEditorLogger.error('Error al eliminar imagen', { filename, status: response.status });
     }
   } catch (error) {
-    console.error('Error al eliminar imagen del servidor:', error);
+    blogEditorLogger.error('Error al eliminar imagen del servidor', { error });
   }
 };
 
@@ -150,7 +154,7 @@ export function BlogEditor({
     // Detectar imágenes que ya no están en el contenido
     imagesRef.current.forEach(imgUrl => {
       if (!currentImages.has(imgUrl)) {
-        console.log('Imagen eliminada del contenido:', imgUrl);
+        blogEditorLogger.debug('Imagen eliminada del contenido', { imgUrl });
         deleteImageFromServer(imgUrl);
       }
     });
@@ -187,7 +191,9 @@ export function BlogEditor({
         // Escanear imágenes iniciales
         if (value) {
           imagesRef.current = scanImagesInContent(value);
-          console.log('Imágenes iniciales:', [...imagesRef.current]);
+          blogEditorLogger.debug('Imágenes iniciales escaneadas', { 
+            images: [...imagesRef.current] 
+          });
         }
       }}
       init={{

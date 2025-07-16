@@ -8,6 +8,10 @@ import { User } from '../../../types';
 import { adminUserService } from '../../../services/api';
 import { Pencil, Trash2, Plus as PlusIcon } from 'lucide-react';
 import { showDangerConfirm, showSuccess, showError, showLoading, closeLoading } from '../../../utils/alerts';
+import { createModuleLogger } from '../../../utils/loggerExampleUsage';
+
+// Crear logger para la administración de usuarios
+const adminUsersLogger = createModuleLogger('ADMIN_USERS');
 
 export const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -38,8 +42,8 @@ export const AdminUsersPage: React.FC = () => {
       
       // Verificar si los datos recibidos tienen los campos phone, dni y membership_date
       if (data && data.length > 0) {
-        console.log('Ejemplo de usuario recibido:', data[0]);
-        console.log('Campos críticos en usuario recibido:', {
+        adminUsersLogger.debug('Usuario de ejemplo recibido del servidor', { user: data[0] });
+        adminUsersLogger.debug('Validación de campos críticos en usuarios', {
           phone: data[0].phone !== undefined ? 'SÍ' : 'NO',
           dni: data[0].dni !== undefined ? 'SÍ' : 'NO',
           membership_date: data[0].membership_date !== undefined ? 'SÍ' : 'NO',
@@ -49,9 +53,13 @@ export const AdminUsersPage: React.FC = () => {
         });
         
         // Revisar todos los usuarios
-        console.log('Estado de todos los usuarios:');
-        data.forEach((user: User) => {
-          console.log(`Usuario ${user.id} (${user.name}): is_active = ${user.is_active} (${typeof user.is_active})`);
+        adminUsersLogger.debug('Estado de activación de todos los usuarios', {
+          users: data.map((user: User) => ({
+            id: user.id,
+            name: user.name,
+            is_active: user.is_active,
+            is_active_type: typeof user.is_active
+          }))
         });
       }
       
@@ -241,10 +249,10 @@ export const AdminUsersPage: React.FC = () => {
         };
         
         const createdUser = await adminUserService.createUser(newUserData);
-        console.log('Usuario creado:', createdUser);
+        adminUsersLogger.info('Usuario creado exitosamente', { userId: createdUser.id, user: createdUser });
         
         // Verificar si se guardaron los campos
-        console.log('Campos guardados:', {
+        adminUsersLogger.debug('Validación de campos guardados para nuevo usuario', {
           phone: createdUser.phone !== undefined ? 'SÍ' : 'NO',
           dni: createdUser.dni !== undefined ? 'SÍ' : 'NO',
           membership_date: createdUser.membership_date !== undefined ? 'SÍ' : 'NO'
@@ -326,7 +334,11 @@ export const AdminUsersPage: React.FC = () => {
     {
       header: 'Estado',
       accessor: (user: User) => {
-        console.log(`Renderizando estado para usuario ${user.id}: is_active = ${user.is_active} (${typeof user.is_active})`);
+        adminUsersLogger.debug('Renderizando estado para usuario', { 
+          userId: user.id,
+          is_active: user.is_active,
+          activeType: typeof user.is_active
+        });
         // Asegurarse de que is_active sea un booleano (podría venir como 1/0 desde la BD)
         const isActive = Boolean(user.is_active);
         

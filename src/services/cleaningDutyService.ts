@@ -3,6 +3,10 @@
  */
 
 import { fetchWithAuth, normalizeNumericValues } from './api';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger para el servicio de limpieza
+const cleaningLogger = createModuleLogger('CLEANING');
 
 // Interfaces para los datos
 export interface CleaningConfig {
@@ -64,7 +68,7 @@ export const cleaningDutyService = {
   // Obtener asignaciones de limpieza actuales
   getCurrentAssignments: async (): Promise<CleaningAssignment[]> => {
     try {
-      console.log('Obteniendo asignaciones de limpieza actuales');
+      cleaningLogger.debug('Obteniendo asignaciones de limpieza actuales');
       const response = await fetchWithAuth('/cleaning-duty/current');
       
       if (!response.ok) {
@@ -72,10 +76,12 @@ export const cleaningDutyService = {
       }
       
       const data = await response.json();
-      console.log('Datos recibidos de asignaciones actuales:', data);
+      cleaningLogger.debug('Datos recibidos de asignaciones actuales', { count: data?.length });
       return Array.isArray(data) ? normalizeNumericValues(data) : [];
     } catch (error) {
-      console.error("Error obteniendo asignaciones de limpieza actuales:", error);
+      cleaningLogger.error('Error obteniendo asignaciones de limpieza actuales', { 
+        error: error instanceof Error ? error.message : error 
+      });
       return [];
     }
   },
@@ -90,7 +96,7 @@ export const cleaningDutyService = {
       const data = await response.json();
       return Array.isArray(data) ? normalizeNumericValues(data) : [];
     } catch (error) {
-      console.error("Error obteniendo historial de limpieza:", error);
+      cleaningLogger.error("Error obteniendo historial de limpieza:", error);
       return [];
     }
   },
@@ -98,7 +104,7 @@ export const cleaningDutyService = {
   // Obtener historial de limpieza de un usuario específico
   getUserHistory: async (userId: number): Promise<CleaningAssignment[]> => {
     try {
-      console.log(`Obteniendo historial de limpieza para el usuario ${userId}`);
+      cleaningLogger.debug('Obteniendo historial de limpieza para usuario', { userId });
       const response = await fetchWithAuth(`/cleaning-duty/user/${userId}`);
       
       if (!response.ok) {
@@ -106,11 +112,17 @@ export const cleaningDutyService = {
       }
       
       const data = await response.json();
-      console.log(`Datos de historial recibidos para el usuario ${userId}:`, data);
+      cleaningLogger.debug('Datos de historial recibidos', { 
+        userId, 
+        count: data?.length 
+      });
       
       return Array.isArray(data) ? normalizeNumericValues(data) : [];
     } catch (error) {
-      console.error(`Error obteniendo historial de limpieza para el usuario ${userId}:`, error);
+      cleaningLogger.error('Error obteniendo historial de limpieza para usuario', { 
+        userId,
+        error: error instanceof Error ? error.message : error 
+      });
       return [];
     }
   },
@@ -184,7 +196,7 @@ export const cleaningDutyService = {
       
       return normalizeNumericValues(await response.json());
     } catch (error) {
-      console.error(`Error actualizando usuario asignado a tarea de limpieza:`, error);
+      cleaningLogger.error(`Error actualizando usuario asignado a tarea de limpieza:`, error);
       throw error;
     }
   }

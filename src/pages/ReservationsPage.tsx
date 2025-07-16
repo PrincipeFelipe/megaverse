@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Clock, Users, List } from '../utils/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
@@ -18,6 +18,10 @@ import { hasReachedDailyLimit, hasMinimumAdvanceTime } from '../utils/reservatio
 import { UserLayout } from '../components/layout/UserLayout';
 import '../components/calendar/fullcalendar-responsive.css'; // Estilos responsivos para el calendario
 import './reservations-responsive.css'; // Estilos responsivos adicionales para la página completa
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger para la página de reservas
+const reservationsLogger = createModuleLogger('RESERVATIONS');
 
 // Tipo para errores de API
 type ApiError = {
@@ -61,8 +65,8 @@ export const ReservationsPage: React.FC = () => {
       if (reservation.status === 'active' && endTime < now) {
         updatePromises.push(
           reservationService.updateReservationStatus(reservation.id, 'completed')
-            .then(() => console.log(`Reserva ${reservation.id} marcada como completada automáticamente`))
-            .catch((err: Error) => console.error(`Error al actualizar reserva ${reservation.id}:`, err))
+            .then(() => reservationsLogger.info('Reserva marcada como completada automáticamente', { reservationId: reservation.id }))
+            .catch((err: Error) => reservationsLogger.error('Error al actualizar reserva', { reservationId: reservation.id, error: err.message }))
         );
         updatedReservations.push({ ...reservation, status: 'completed' as const });
       } else {
@@ -88,7 +92,7 @@ export const ReservationsPage: React.FC = () => {
           const configData = await configService.getConfig();
           // Guardar la configuración en el objeto window para acceso global
           window.reservationConfig = configData;
-          console.log("Configuración de reservas cargada:", configData);
+          reservationsLogger.debug('Configuración de reservas cargada', { configData });
         } catch (configError) {
           console.error("Error al cargar la configuración de reservas:", configError);
           // En caso de error, establecer valores predeterminados
@@ -105,7 +109,9 @@ export const ReservationsPage: React.FC = () => {
             allow_consecutive_reservations: true,
             min_time_between_reservations: 0
           };
-          console.log("Usando configuración predeterminada:", window.reservationConfig);
+          reservationsLogger.warn('Usando configuración predeterminada', { 
+            config: window.reservationConfig 
+          });
         }
         
         // Verificar y actualizar reservas pasadas
@@ -116,13 +122,13 @@ export const ReservationsPage: React.FC = () => {
         
         // Esperar a que todas las actualizaciones de estado se completen en segundo plano
         Promise.all(updatePromises)
-          .then(() => console.log("Todas las actualizaciones de estado de reservas se han completado"))
-          .catch((err: Error) => console.error("Error al actualizar estados de reservas:", err));
+          .then(() => reservationsLogger.info('Todas las actualizaciones de estado de reservas se han completado'))
+          .catch((err: Error) => reservationsLogger.error('Error al actualizar estados de reservas', { error: err.message }));
         
         // Ejecutar prueba de visualización de horas
-        console.log("Ejecutando prueba de visualización de horas:");
+        reservationsLogger.debug('Ejecutando prueba de visualización de horas');
         const testResult = testHoursVisualization();
-        console.log("Resultado final de la prueba:", testResult);
+        reservationsLogger.debug('Resultado final de la prueba', { testResult });
       } catch (error: unknown) {
         console.error('Error al cargar datos:', error);
         setError('Error al cargar los datos de reservas. Por favor, inténtalo de nuevo.');
@@ -153,8 +159,8 @@ export const ReservationsPage: React.FC = () => {
         if (updatePromises.length > 0) {
           setReservations(updatedReservations);
           Promise.all(updatePromises)
-            .then(() => console.log("Actualizaciones periódicas de estado completadas"))
-            .catch((err: Error) => console.error("Error en actualizaciones periódicas:", err));
+            .then(() => reservationsLogger.debug('Actualizaciones periódicas de estado completadas'))
+            .catch((err: Error) => reservationsLogger.error('Error en actualizaciones periódicas', { error: err }));
         }
       }
     };
@@ -279,17 +285,23 @@ export const ReservationsPage: React.FC = () => {
       // Registrar información de la reserva
       const startHour = startDate.getHours();
       const endHour = endDate.getHours();
-      console.log(`Hora de inicio: ${startHour}:00, Hora de fin: ${endHour}:00`);
-      console.log(`Duración: ${endHour - startHour} horas`);      
-      console.log(`Fecha local inicio: ${startDate.toLocaleDateString()} ${startDate.getHours()}:${startDate.getMinutes()}`);
-      console.log(`Fecha local fin: ${endDate.toLocaleDateString()} ${endDate.getHours()}:${endDate.getMinutes()}`);
+      
+      reservationsLogger.debug('Información de la nueva reserva', {
+        hours: `${startHour}:00 - ${endHour}:00`,
+        duration: `${endHour - startHour} horas`,
+        startDate: {
+          local: `${startDate.toLocaleDateString()} ${startDate.getHours()}:${startDate.getMinutes()}`,
+          iso: preserveLocalTime(startDate)
+        },
+        endDate: {
+          local: `${endDate.toLocaleDateString()} ${endDate.getHours()}:${endDate.getMinutes()}`,
+          iso: preserveLocalTime(endDate)
+        }
+      });
       
       // Preservamos la hora local (visual) al convertir a ISO
       const startTime = preserveLocalTime(startDate);
       const endTime = preserveLocalTime(endDate);
-      
-      console.log(`Fecha ISO start: ${startTime}`);
-      console.log(`Fecha ISO end: ${endTime}`);
       
       // Obtener nombre de la mesa para el mensaje de confirmación
       const tableName = tables.find(t => t.id === selectedSlot.tableId)?.name || 'Mesa';

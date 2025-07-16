@@ -1,5 +1,8 @@
 import { BlogPost, BlogCategory, BlogTag, BlogFilters } from '../types/blog';
 import { normalizeNumericValues } from './api';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+const blogLogger = createModuleLogger('BLOG');
 
 // Asegurarnos de que la URL base sea consistente
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
@@ -20,7 +23,7 @@ export const blogService = {
         }
       }
       
-      console.log('blogService.getAllPosts - isPublicPage:', isPublicPage);
+      blogLogger.debug('getAllPosts iniciado', { isPublicPage });
       
       // Construir URL con filtros
       let url = `${API_URL}/blog/posts`;
@@ -31,12 +34,14 @@ export const blogService = {
         
         // Si estamos en la página pública, siempre filtrar por status='published'
         if (isPublicPage) {
-          console.log('Añadiendo filtro status=published para la página pública');
+          blogLogger.debug('Añadiendo filtro status=published para página pública');
           // Forzar el parámetro de status a 'published' para páginas públicas
           params.append('status', 'published');
           // Eliminar cualquier otro filtro de status que pudiera existir
           if (filters?.status) {
-            console.log('Ignorando filtro de status existente:', filters.status);
+            blogLogger.debug('Ignorando filtro de status existente', { 
+              existingStatus: filters.status 
+            });
           }
         } else if (filters?.status) {
           params.append('status', filters.status);
@@ -58,7 +63,7 @@ export const blogService = {
       }
       
       // Log para mostrar la URL completa de la solicitud
-      console.log('Enviando solicitud a:', url);
+      blogLogger.debug('Enviando solicitud', { url });
       
       // Construir headers según si es página pública o no
       const headers: Record<string, string> = {};
@@ -82,16 +87,22 @@ export const blogService = {
       
       // Log para mostrar cuántos posts se han recibido y sus estados
       if (data.posts) {
-        console.log(`Recibidos ${data.posts.length} posts del servidor`);
-        console.log('Estados de los posts recibidos:', data.posts.map((p: any) => p.status));
+        blogLogger.debug('Posts recibidos del servidor', { 
+          postsCount: data.posts.length 
+        });
+        blogLogger.debug('Estados de los posts recibidos', { 
+          statuses: data.posts.map((p: unknown) => (p as any)?.status)
+        });
         
         // Si estamos en la página pública, asegurarnos de que sólo se devuelven posts publicados
         if (isPublicPage) {
-          console.log('Filtrando posts para mostrar sólo publicados en el frontend');
+          blogLogger.debug('Filtrando posts para mostrar sólo publicados en el frontend');
           data.posts = data.posts.filter((post: any) => 
             post.status && post.status.toLowerCase() === 'published'
           );
-          console.log(`Después del filtrado: ${data.posts.length} posts`);
+          blogLogger.debug('Posts después del filtrado para frontend público', { 
+            filteredCount: data.posts.length 
+          });
         }
       }
       
@@ -153,8 +164,11 @@ export const blogService = {
         url += '?publicOnly=true';
       }
       
-      console.log(`Obteniendo post por slug: ${slug}, isPublicPage: ${isPublicPage}`);
-      console.log(`URL: ${url}`);
+      blogLogger.debug('Obteniendo post por slug', { 
+        slug, 
+        isPublicPage, 
+        url 
+      });
       
       // Construir headers según si es página pública o no
       const headers: Record<string, string> = {};

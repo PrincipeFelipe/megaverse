@@ -4,6 +4,9 @@
 
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { createModuleLogger } from './loggerExampleUsage';
+
+const formattersLogger = createModuleLogger('FORMATTERS');
 
 /**
  * Formatea una fecha en el formato español estándar
@@ -47,7 +50,7 @@ export const formatCurrency = (
   try {
     // Si es undefined o null, lo tratamos como 0
     if (amount === undefined || amount === null) {
-      console.log(`Valor nulo para formatCurrency. Usando 0.`);
+      formattersLogger.debug('Valor nulo para formatCurrency, usando 0');
       amount = 0;
     }
     
@@ -65,7 +68,10 @@ export const formatCurrency = (
     
     // Verificar si el valor es válido (no es NaN, undefined o null)
     if (isNaN(numAmount)) {
-      console.log(`Valor inválido para formatCurrency: ${amount}, tipo: ${typeof amount}`);
+      formattersLogger.warn('Valor inválido para formatCurrency', { 
+        amount, 
+        type: typeof amount 
+      });
       numAmount = 0;
     }
     

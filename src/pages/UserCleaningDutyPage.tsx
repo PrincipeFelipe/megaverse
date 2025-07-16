@@ -6,6 +6,10 @@ import { Card } from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
 import { UserLayout } from '../components/layout/UserLayout';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger para la página de limpieza del usuario
+const userCleaningLogger = createModuleLogger('USER_CLEANING');
 
 const UserCleaningDutyPage: React.FC = () => {
   const [assignments, setAssignments] = useState<CleaningAssignment[]>([]);
@@ -21,7 +25,10 @@ const UserCleaningDutyPage: React.FC = () => {
       const history = await cleaningDutyService.getUserHistory(user.id);
       setAssignments(history);
     } catch (err) {
-      console.error('Error al cargar historial de limpieza:', err);
+      userCleaningLogger.error('Error al cargar historial de limpieza', { 
+        userId: user?.id,
+        error: err instanceof Error ? err.message : err 
+      });
       addNotification({
         type: 'error',
         title: 'Error',
@@ -42,7 +49,10 @@ const UserCleaningDutyPage: React.FC = () => {
     try {
       return format(parseISO(dateString), 'dd MMM yyyy', { locale: es });
     } catch (error) {
-      console.error("Error al formatear fecha:", error);
+      userCleaningLogger.error('Error al formatear fecha', { 
+        dateString,
+        error: error instanceof Error ? error.message : error 
+      });
       return dateString;
     }
   };
@@ -153,7 +163,10 @@ const UserCleaningDutyPage: React.FC = () => {
                         // Refrescar datos
                         fetchUserCleaningHistory();
                       } catch (error) {
-                        console.error('Error al actualizar el estado del turno de limpieza:', error);
+                        userCleaningLogger.error('Error al actualizar el estado del turno de limpieza', { 
+                          assignmentId: currentAssignment.id,
+                          error: error instanceof Error ? error.message : error 
+                        });
                         addNotification({
                           type: 'error',
                           title: 'Error',

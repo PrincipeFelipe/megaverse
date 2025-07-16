@@ -1,7 +1,8 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { createModuleLogger } from './utils/loggerExampleUsage';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { CookieBanner } from './components/ui/CookieBanner';
@@ -61,6 +62,23 @@ import BlogPostPage from './pages/blog/BlogPostPage';
 import UserCleaningDutyPage from './pages/UserCleaningDutyPage';
 import AdminCleaningDutyPage from './pages/admin/cleaning/AdminCleaningDutyPage';
 
+// Logger Page
+import AdminLoggerPage from './pages/admin/AdminLoggerPage';
+
+// Logger para la aplicación
+const appLogger = createModuleLogger('APP');
+
+// Componente para trackear navegación
+const NavigationTracker: React.FC = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    appLogger.info('Navegación', { route: location.pathname });
+  }, [location]);
+  
+  return null;
+};
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -78,6 +96,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AppContent: React.FC = () => {
   return (
     <Router>
+      <NavigationTracker />
       <div className="min-h-screen bg-gray-50 dark:bg-dark-900 flex flex-col">
         <Header />
         <main className="flex-1">
@@ -276,6 +295,16 @@ const AppContent: React.FC = () => {
               element={
                 <AdminProtectedRoute>
                   <AdminCleaningDutyPage />
+                </AdminProtectedRoute>
+              } 
+            />
+            
+            {/* Ruta para el Logger Control Panel */}
+            <Route 
+              path="/admin/logger" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminLoggerPage />
                 </AdminProtectedRoute>
               } 
             />

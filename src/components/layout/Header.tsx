@@ -7,6 +7,10 @@ import { Button } from '../ui/Button';
 import { getAvatarUrl, handleAvatarError } from '../../utils/avatar';
 import { NotificationDropdown } from '../ui/NotificationDropdown';
 import { useForceUpdate } from '../../hooks/useForceUpdate';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+// Crear logger para el componente Header
+const headerLogger = createModuleLogger('UI');
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -19,10 +23,18 @@ export const Header: React.FC = () => {
   
   // Debug: loggar cuando cambie el usuario
   useEffect(() => {
-    console.log('🔔 Header: Usuario actualizado:', user);
+    headerLogger.debug('Usuario actualizado en Header', { 
+      hasUser: !!user, 
+      userId: user?.id,
+      username: user?.username 
+    });
     if (user?.avatar_url) {
-      console.log('🔔 Header: URL de avatar:', user.avatar_url);
-      console.log('🔔 Header: URL transformada:', getAvatarUrl(user.avatar_url));
+      const transformedUrl = getAvatarUrl(user.avatar_url);
+      headerLogger.debug('Avatar configurado en Header', { 
+        originalUrl: user.avatar_url,
+        transformedUrl,
+        userId: user.id
+      });
       // Forzar actualización del componente cuando cambie el avatar
       forceUpdate();
     }
@@ -125,7 +137,7 @@ export const Header: React.FC = () => {
                           key={`avatar-${user.id}-${user.avatar_url}-${Date.now()}`}
                           src={getAvatarUrl(user.avatar_url, undefined, true) || undefined}
                           alt="Avatar" 
-                          onLoad={() => console.log('Avatar cargado exitosamente en Header')}
+                          onLoad={() => headerLogger.debug('Avatar cargado exitosamente en Header', { userId: user.id })}
                           onError={(e) => handleAvatarError(e.currentTarget)}
                         />
                       </div>

@@ -14,9 +14,13 @@ import { Payment, PaymentFilters } from '../types/payments';
 import { useNotifications } from '../hooks/useNotifications';
 import { AlertTriangle } from 'lucide-react';
 import { UserLayout } from '../components/layout/UserLayout';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
 
 // Estilos específicos para la alineación de tablas
 import '../styles/table-alignment-fix.css';
+
+// Crear logger para la página de historial de pagos
+const paymentHistoryLogger = createModuleLogger('PAYMENT_HISTORY');
 
 export function PaymentHistoryPage() {
   const { updateUserData } = useAuth();
@@ -87,11 +91,17 @@ export function PaymentHistoryPage() {
       showLoading('Cargando información de deuda y pagos...');
       
       const data = await consumptionPaymentsService.getUserDebt();
-      console.log('Datos de deuda recibidos:', data);
+      paymentHistoryLogger.debug('Datos de deuda recibidos', { 
+        hasData: !!data,
+        hasCurrentDebt: !!data.currentDebt 
+      });
       
       // Asegurarnos de que currentDebt sea un número
       const normalizedData = ensureDebtIsNumber(data);
-      console.log('Datos normalizados:', normalizedData);
+      paymentHistoryLogger.debug('Datos normalizados', { 
+        currentDebt: normalizedData.currentDebt,
+        paymentHistoryCount: normalizedData.paymentHistory.length 
+      });
       
       setDebtInfo(normalizedData);
       

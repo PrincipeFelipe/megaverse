@@ -4,6 +4,9 @@ import { consumptionPaymentsService, ConsumptionPayment } from '../../services/c
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { showLoading, closeLoading, showSuccess, showError } from '../../utils/alerts';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
+
+const payConsumptionsModalLogger = createModuleLogger('PAY_CONSUMPTIONS_MODAL');
 
 interface PayConsumptionsModalProps {
   isOpen: boolean;
@@ -35,13 +38,13 @@ export const PayConsumptionsModal: React.FC<PayConsumptionsModalProps> = ({
       try {
         setLoading(true);
         const debtInfo = await consumptionPaymentsService.getUserDebt();
-        console.log('Información de deuda obtenida en modal:', debtInfo);
+        payConsumptionsModalLogger.debug('Información de deuda obtenida en modal', { debtInfo });
         
         // La normalización ya debería estar hecha en el servicio, pero aseguramos aquí también
         const debt = typeof debtInfo.currentDebt === 'number' ? 
           debtInfo.currentDebt : 0;
         
-        console.log('Deuda normalizada en modal:', debt);
+        payConsumptionsModalLogger.debug('Deuda normalizada en modal', { debt });
         setCurrentDebt(debt);
         setAmount(debt); // Por defecto, establecer el monto completo
       } catch (error) {

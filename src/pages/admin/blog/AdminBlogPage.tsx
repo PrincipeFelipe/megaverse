@@ -11,6 +11,9 @@ import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { PostForm } from '../../../components/blog/admin/PostForm';
 import { CategoryForm } from '../../../components/blog/admin/CategoryForm';
 import { TagForm } from '../../../components/blog/admin/TagForm';
+import { createModuleLogger } from '../../../utils/loggerExampleUsage';
+
+const adminBlogLogger = createModuleLogger('ADMIN_BLOG');
 
 const AdminBlogPage: React.FC = () => {
   // Estado para la pestaña activa
@@ -54,9 +57,13 @@ const AdminBlogPage: React.FC = () => {
       const allPosts = await blogService.getAllPosts();
       
       // Logs detallados para depuración
-      console.log('Posts obtenidos:', allPosts);
-      allPosts.forEach((post, index) => {
-        console.log(`Post #${index + 1} (${post.id}): titulo=${post.title}, status=${post.status}`);
+      adminBlogLogger.debug('Posts obtenidos', { 
+        postsCount: allPosts.length,
+        posts: allPosts.map(post => ({
+          id: post.id,
+          title: post.title,
+          status: post.status
+        }))
       });
       
       // Establecer los posts en el estado
@@ -179,7 +186,10 @@ const AdminBlogPage: React.FC = () => {
     try {
       // Obtener los datos completos del post incluyendo el contenido
       const fullPost = await blogService.getPostById(post.id);
-      console.log('Post completo para editar:', fullPost);
+      adminBlogLogger.debug('Post completo obtenido para editar', { 
+        postId: post.id,
+        fullPost 
+      });
       setEditingItem(fullPost);
       setShowPostForm(true);
     } catch (error) {
@@ -228,7 +238,10 @@ const AdminBlogPage: React.FC = () => {
   const handleUpdatePost = async (postData: Partial<BlogPost>) => {
     try {
       if (editingItem && 'id' in editingItem) {
-        console.log('Enviando actualización de post:', JSON.stringify(postData, null, 2));
+        adminBlogLogger.debug('Enviando actualización de post', { 
+          postId: editingItem.id,
+          postData 
+        });
         
         await blogService.updatePost(editingItem.id, postData);
         fetchPosts();

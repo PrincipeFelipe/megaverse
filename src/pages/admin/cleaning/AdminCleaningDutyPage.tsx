@@ -9,6 +9,10 @@ import { Select } from '../../../components/ui/Select';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { UserSelector } from '../../../components/admin/UserSelector';
 import { Pencil } from '../../../utils/icons';
+import { createModuleLogger } from '../../../utils/loggerExampleUsage';
+
+// Crear logger para la administración de limpieza
+const adminCleaningLogger = createModuleLogger('ADMIN_CLEANING');
 
 interface User {
   id: number;
@@ -59,7 +63,9 @@ const AdminCleaningDutyPage: React.FC = () => {
       setHistory(historyData);
       setExemptions(exemptionsData);
     } catch (error) {
-      console.error('Error al cargar datos del sistema de limpieza:', error);
+      adminCleaningLogger.error('Error al cargar datos del sistema de limpieza', { 
+        error: error instanceof Error ? error.message : error 
+      });
       addNotification({
         type: 'error',
         title: 'Error',
@@ -93,7 +99,9 @@ const AdminCleaningDutyPage: React.FC = () => {
       
       return [];
     } catch (err) {
-      console.error('Error al cargar usuarios:', err);
+      adminCleaningLogger.error('Error al cargar usuarios', { 
+        error: err instanceof Error ? err.message : err 
+      });
       return [];
     }
   };
@@ -108,7 +116,10 @@ const AdminCleaningDutyPage: React.FC = () => {
       });
       fetchData();
     } catch (error) {
-      console.error('Error al actualizar configuración:', error);
+      adminCleaningLogger.error('Error al actualizar configuración', { 
+        usersPerWeek,
+        error: error instanceof Error ? error.message : error 
+      });
       addNotification({
         type: 'error',
         title: 'Error',
@@ -127,7 +138,9 @@ const AdminCleaningDutyPage: React.FC = () => {
       });
       fetchData();
     } catch (error: unknown) {
-      console.error('Error al generar asignaciones de limpieza:', error);
+      adminCleaningLogger.error('Error al generar asignaciones de limpieza', { 
+        error: error instanceof Error ? error.message : error 
+      });
       const errorMessage = error instanceof Error ? error.message : 'Error al generar asignaciones de limpieza';
       addNotification({
         type: 'error',
@@ -147,7 +160,11 @@ const AdminCleaningDutyPage: React.FC = () => {
       });
       fetchData();
     } catch (error) {
-      console.error('Error al actualizar estado:', error);
+      adminCleaningLogger.error('Error al actualizar estado', { 
+        assignmentId,
+        status,
+        error: error instanceof Error ? error.message : error 
+      });
       addNotification({
         type: 'error',
         title: 'Error',
@@ -174,7 +191,11 @@ const AdminCleaningDutyPage: React.FC = () => {
       setShowUserSelector(false);
       fetchData();
     } catch (err) {
-      console.error('Error al actualizar usuario asignado:', err);
+      adminCleaningLogger.error('Error al actualizar usuario asignado', { 
+        assignmentId: editingAssignmentId,
+        newUserId,
+        error: err instanceof Error ? err.message : err 
+      });
       addNotification({
         type: 'error',
         title: 'Error',
@@ -212,7 +233,10 @@ const AdminCleaningDutyPage: React.FC = () => {
         });
         fetchData();
       } catch (err) {
-        console.error('Error al eliminar exención:', err);
+        adminCleaningLogger.error('Error al eliminar exención', { 
+          exemptionId,
+          error: err instanceof Error ? err.message : err 
+        });
         addNotification({
           type: 'error',
           title: 'Error',
@@ -273,7 +297,11 @@ const AdminCleaningDutyPage: React.FC = () => {
       
       fetchData();
     } catch (err) {
-      console.error('Error al añadir exención:', err);
+      adminCleaningLogger.error('Error al añadir exención', { 
+        userId: newExemption.userId,
+        isPermanent: newExemption.isPermanent,
+        error: err instanceof Error ? err.message : err 
+      });
       addNotification({
         type: 'error',
         title: 'Error',

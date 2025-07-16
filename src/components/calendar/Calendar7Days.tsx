@@ -16,9 +16,12 @@ import {
 import { Reservation, Table, ReservationConfig } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { showError, showConfirm } from '../../utils/alerts';
+import { createModuleLogger } from '../../utils/loggerExampleUsage';
 import './calendar-styles.css'; // Estilos personalizados existentes
 import './fullcalendar-styles.css'; // Estilos para FullCalendar
 import './fullcalendar-responsive.css'; // Nuevos estilos responsive para móviles y tablets
+
+const calendarLogger = createModuleLogger('CALENDAR');
 
 // Hook personalizado para detectar el tamaño de la ventana
 const useWindowSize = () => {
@@ -257,14 +260,16 @@ export const Calendar7Days: React.FC<CalendarProps> = ({
       // Cuando la vista se inicialice, usar este día como primer día de la semana
       calendarApi.setOption('firstDay', currentDay);
       
-      console.log('Vista de semana configurada para comenzar hoy:', today);
-      console.log('Día actual de la semana:', currentDay);
+      calendarLogger.debug('Vista de semana configurada', { 
+        today: today.toISOString(),
+        currentDay: currentDay 
+      });
       
       // Registrar en consola la configuración de horas
-      console.log('Configuración del calendario cargada:', {
+      calendarLogger.debug('Configuración del calendario cargada', {
         minTime,
         maxTime,
-        date: today,
+        date: today.toISOString(),
         dayOfWeek: today.getDay()
       });
     }
@@ -294,8 +299,8 @@ export const Calendar7Days: React.FC<CalendarProps> = ({
 
       // Para reservas de todo el día aprobadas, crear un solo evento que abarque todo el rango
       if (reservation.all_day && reservation.approved) {
-        console.log(`🎯 Procesando reserva de todo el día aprobada:`, {
-          id: reservation.id,
+        calendarLogger.debug('Procesando reserva de todo el día aprobada', {
+          reservationId: reservation.id,
           user: reservation.user_name,
           table: tables.find(t => t.id === reservation.table_id)?.name,
           start: reservation.start_time,
@@ -485,10 +490,15 @@ export const Calendar7Days: React.FC<CalendarProps> = ({
     const allowConsecutive = window.reservationConfig?.allow_consecutive_reservations ?? true;
     const minTimeBetween = window.reservationConfig?.min_time_between_reservations ?? 0;
     
-    console.log('Verificando reserva en mesa:', tableId, 'Inicio:', start, 'Fin:', end);
-    console.log('Configuración actual:', {
-      allow_consecutive_reservations: allowConsecutive,
-      min_time_between_reservations: minTimeBetween
+    calendarLogger.debug('Verificando disponibilidad de reserva', {
+      tableId,
+      tableName,
+      start: start.toISOString(),
+      end: end.toISOString()
+    });
+    calendarLogger.debug('Configuración de reservas consecutivas', {
+      allowConsecutive,
+      minTimeBetween
     });
     
     // Primero verificar si la mesa está disponible
@@ -547,13 +557,13 @@ export const Calendar7Days: React.FC<CalendarProps> = ({
             'Reservas consecutivas no permitidas',
             `No se permiten reservas consecutivas según la configuración actual del sistema. Ya tienes una reserva en ${otherTable} de ${resStart.toLocaleTimeString()} a ${resEnd.toLocaleTimeString()}.`
           );
-          console.log('Reservas consecutivas no permitidas. Configuración:', { allowConsecutive });
+          calendarLogger.warn('Reservas consecutivas no permitidas', { allowConsecutive });
           return false;
         }
         
         // Si son consecutivas y están permitidas, no verificamos el tiempo mínimo entre reservas
         if (isConsecutiveReservation && allowConsecutive) {
-          console.log('Reservas consecutivas permitidas. Se omite verificación de tiempo mínimo.');
+          calendarLogger.debug('Reservas consecutivas permitidas, omitiendo verificación de tiempo mínimo');
           continue; // Saltamos a la siguiente reserva sin verificar tiempo mínimo
         }
         
@@ -579,13 +589,17 @@ export const Calendar7Days: React.FC<CalendarProps> = ({
             'Tiempo insuficiente entre reservas',
             `Debe haber al menos ${minTimeBetween} minutos entre tus reservas. Tienes otra reserva en ${otherTable} de ${resStart.toLocaleTimeString()} a ${resEnd.toLocaleTimeString()}, con solo ${minutesBetween} minutos de diferencia.`
           );
-          console.log('Tiempo insuficiente entre reservas del usuario:', { 
+          calendarLogger.warn('Tiempo insuficiente entre reservas del usuario', { 
             minTimeBetween, 
             minutesBetween, 
-            start: start.toLocaleTimeString(), 
-            end: end.toLocaleTimeString(),
-            resStart: resStart.toLocaleTimeString(),
-            resEnd: resEnd.toLocaleTimeString()
+            newReservation: {
+              start: start.toISOString(), 
+              end: end.toISOString()
+            },
+            existingReservation: {
+              start: resStart.toISOString(),
+              end: resEnd.toISOString()
+            }
           });
           return false;
         }

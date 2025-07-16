@@ -7,6 +7,10 @@ import {
   PaymentReportResponse 
 } from '../types';
 import { fetchWithAuth } from './api';
+import { createModuleLogger } from '../utils/loggerExampleUsage';
+
+// Crear logger para el servicio de pagos
+const paymentsLogger = createModuleLogger('PAYMENTS');
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 const API_PATH = '';
@@ -326,7 +330,10 @@ export const paymentsService = {
         }
         
         const data = await response.json();
-        console.log('Respuesta API pagos consumo:', data);
+        paymentsLogger.debug('Respuesta API pagos consumo', { 
+          data,
+          paymentsCount: data?.payments?.length || 0
+        });
         
         // Verificamos que tengamos datos y que tengan la estructura esperada
         if (data && data.payments && Array.isArray(data.payments)) {
@@ -336,12 +343,19 @@ export const paymentsService = {
               const amount = typeof payment.amount === 'number' ? payment.amount : parseFloat(String(payment.amount));
               if (!isNaN(amount)) {
                 consumptionTotal += amount;
-                console.log(`Pago ID: ${payment.id || 'N/A'}, Monto: ${amount}, Usuario: ${payment.user_name || 'N/A'}`);
+                paymentsLogger.debug('Pago procesado', { 
+                  paymentId: payment.id || 'N/A',
+                  amount,
+                  userName: payment.user_name || 'N/A'
+                });
               }
             }
           });
         } else {
-          console.error('Estructura de datos inesperada:', data);
+          paymentsLogger.error('Estructura de datos inesperada', { 
+            dataType: typeof data,
+            isArray: Array.isArray(data) 
+          });
         }
       } catch (error) {
         console.error('Error al obtener pagos de consumo:', error);
@@ -350,9 +364,11 @@ export const paymentsService = {
       const feeTotalNum = typeof feeTotal === 'number' ? feeTotal : parseFloat(String(feeTotal));
       const consumptionTotalNum = typeof consumptionTotal === 'number' ? consumptionTotal : parseFloat(String(consumptionTotal));
       
-      console.log('Total de ingresos por cuotas:', feeTotalNum);
-      console.log('Total de ingresos por consumos:', consumptionTotalNum);
-      console.log('Total de ingresos combinados como número:', feeTotalNum + consumptionTotalNum);
+      paymentsLogger.debug('Cálculo de ingresos totales', {
+        feeTotalNum,
+        consumptionTotalNum,
+        totalCombined: feeTotalNum + consumptionTotalNum
+      });
       
       // Devolvemos la suma de ambos ingresos como número
       return feeTotalNum + consumptionTotalNum;
