@@ -59,7 +59,7 @@ export const paymentsService = {
       const data = await response.json();
       return data as PaymentsResponse;
     } catch (error) {
-      console.error('Error al obtener los pagos:', error);
+      paymentsLogger.error('Error al obtener los pagos', error);
       throw error;
     }
   },
@@ -90,7 +90,7 @@ export const paymentsService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al crear el pago:', error);
+      paymentsLogger.error('Error al crear el pago', error);
       throw error;
     }
   },
@@ -121,7 +121,7 @@ export const paymentsService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error al actualizar el pago:', error);
+      paymentsLogger.error('Error al actualizar el pago', error);
       throw error;
     }
   },

@@ -6,7 +6,7 @@ import { logger, LogLevel } from './logger';
 
 export const LoggerPresets = {
   /**
-   * Configuración para desarrollo - Muy verbosa
+   * Configuración para desarrollo - Muy verbosa (GUARDA EN BD)
    */
   development: () => {
     logger.configure({
@@ -21,7 +21,7 @@ export const LoggerPresets = {
   },
 
   /**
-   * Configuración para producción - Solo errores y warnings
+   * Configuración para producción - Solo errores y warnings (GUARDA EN BD)
    */
   production: () => {
     logger.configure({
@@ -36,7 +36,7 @@ export const LoggerPresets = {
   },
 
   /**
-   * Configuración para testing - Solo errores
+   * Configuración para testing - Solo errores (GUARDA EN BD)
    */
   testing: () => {
     logger.configure({
@@ -51,7 +51,7 @@ export const LoggerPresets = {
   },
 
   /**
-   * Desactivar completamente el logging
+   * Desactivar completamente el logging (GUARDA EN BD)
    */
   disabled: () => {
     logger.configure({
@@ -66,7 +66,7 @@ export const LoggerPresets = {
   },
 
   /**
-   * Configuración para debugging de un módulo específico
+   * Configuración para debugging de un módulo específico (GUARDA EN BD)
    */
   debugModule: (moduleName: string) => {
     logger.configure({
@@ -81,7 +81,7 @@ export const LoggerPresets = {
   },
 
   /**
-   * Configuración personalizada para la aplicación
+   * Configuración personalizada para la aplicación (GUARDA EN BD)
    */
   custom: (config: {
     enabled?: boolean;
@@ -93,6 +93,101 @@ export const LoggerPresets = {
     colors?: boolean;
   }) => {
     logger.configure(config);
+  }
+};
+
+/**
+ * Presets que NO guardan automáticamente en BD (solo para cargar configuración)
+ */
+export const LoggerPresetsReadOnly = {
+  /**
+   * Configuración para desarrollo - Muy verbosa (NO GUARDA EN BD)
+   */
+  development: () => {
+    logger.configureWithoutSaving({
+      enabled: true,
+      level: LogLevel.VERBOSE,
+      enabledModules: [],
+      disabledModules: [],
+      showTimestamp: true,
+      showModule: true,
+      colors: true
+    });
+  },
+
+  /**
+   * Configuración para producción - Solo errores y warnings (NO GUARDA EN BD)
+   */
+  production: () => {
+    logger.configureWithoutSaving({
+      enabled: true,
+      level: LogLevel.WARN,
+      enabledModules: [],
+      disabledModules: [],
+      showTimestamp: false,
+      showModule: false,
+      colors: false
+    });
+  },
+
+  /**
+   * Configuración para testing - Solo errores (NO GUARDA EN BD)
+   */
+  testing: () => {
+    logger.configureWithoutSaving({
+      enabled: true,
+      level: LogLevel.ERROR,
+      enabledModules: [],
+      disabledModules: [],
+      showTimestamp: false,
+      showModule: true,
+      colors: false
+    });
+  },
+
+  /**
+   * Desactivar completamente el logging (NO GUARDA EN BD)
+   */
+  disabled: () => {
+    logger.configureWithoutSaving({
+      enabled: false,
+      level: LogLevel.ERROR,
+      enabledModules: [],
+      disabledModules: [],
+      showTimestamp: false,
+      showModule: false,
+      colors: false
+    });
+  },
+
+  /**
+   * Configuración para debugging de un módulo específico (NO GUARDA EN BD)
+   */
+  debugModule: (moduleName: string) => {
+    logger.configureWithoutSaving({
+      enabled: true,
+      level: LogLevel.VERBOSE,
+      enabledModules: [moduleName],
+      disabledModules: [],
+      showTimestamp: true,
+      showModule: true,
+      colors: true
+    });
+  },
+
+  /**
+   * Configuración personalizada para la aplicación (NO GUARDA EN BD)
+   */
+  custom: (config: {
+    enabled?: boolean;
+    level?: LogLevel;
+    enabledModules?: string[];
+    disabledModules?: string[];
+    showTimestamp?: boolean;
+    showModule?: boolean;
+    colors?: boolean;
+  }) => {
+    logger.configureWithoutSaving(config);
   }
 };
 

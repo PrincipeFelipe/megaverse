@@ -21,6 +21,7 @@ import blogRoutes from './routes/blog.js';
 import rssRoutes from './routes/rss.js';
 import cleaningDutyRoutes from './routes/cleaningDuty.js';
 import notificationRoutes from './routes/notifications.js';
+import loggerConfigRoutes from './routes/loggerConfig.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -100,6 +101,7 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/rss', rssRoutes);
 app.use('/api/cleaning-duty', cleaningDutyRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/logger', loggerConfigRoutes);
 
 // Test route
 app.get('/api/health', (req, res) => {

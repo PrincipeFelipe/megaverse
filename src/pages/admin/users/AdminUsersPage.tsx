@@ -184,7 +184,7 @@ export const AdminUsersPage: React.FC = () => {
               formattedMembershipDate = undefined;
             }
           } catch (error) {
-            console.warn('Error al formatear membership_date:', error);
+            adminUsersLogger.warn('Error al formatear membership_date', error);
             formattedMembershipDate = undefined;
           }
         } else {
@@ -228,7 +228,7 @@ export const AdminUsersPage: React.FC = () => {
               formattedMembershipDateNew = undefined;
             }
           } catch (error) {
-            console.warn('Error al formatear membership_date para nuevo usuario:', error);
+            adminUsersLogger.warn('Error al formatear membership_date para nuevo usuario', error);
             formattedMembershipDateNew = undefined;
           }
         } else {

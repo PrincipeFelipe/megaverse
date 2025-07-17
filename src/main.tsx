@@ -10,6 +10,9 @@ import { logger } from './utils/logger';
 // Configurar logging según el entorno
 setupEnvironmentLogging();
 
+// Verificar que la configuración persistente funciona
+logger.debug('SYSTEM', 'Logger config on startup', logger.getConfig());
+
 // Log de inicio de la aplicación
 logger.info('APP', 'Aplicación iniciando', {
   environment: import.meta.env.MODE,

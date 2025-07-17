@@ -1,19 +1,13 @@
 import { logger, LogLevel } from './logger';
-import { LoggerPresets } from './loggerConfig';
+// import { LoggerPresets } from './loggerConfig'; // Comentado - no se usa más
 
 // Ejemplo de uso práctico del sistema de logging
 
 // 1. Configurar logger para diferentes entornos
 export function setupEnvironmentLogging() {
-  const env = import.meta.env.MODE;
-  
-  if (env === 'production') {
-    LoggerPresets.production();
-  } else if (env === 'development') {
-    LoggerPresets.development();
-  } else {
-    LoggerPresets.testing();
-  }
+  // NO aplicar presets automáticamente - la configuración debe venir de la DB
+  // El logger ya carga su configuración desde la BD en su constructor
+  logger.debug('SYSTEM', 'setupEnvironmentLogging: No aplicando presets automáticos, usando configuración persistente');
 }
 
 // 2. Ejemplo de logger específico para un componente
@@ -155,7 +149,7 @@ export function exampleDynamicConfiguration() {
   
   // Exportar logs para análisis
   const logs = logger.exportLogs();
-  console.log('Logs exportados:', logs.length);
+  logger.debug('SYSTEM', 'Logs exportados', { count: logs.length });
   
   // Limpiar historial
   logger.clearHistory();
@@ -174,7 +168,7 @@ export const createModuleLogger = (moduleName: string) => {
 
 // Función de demostración completa
 export function demonstrateLoggingSystem() {
-  console.log('=== Demostración del Sistema de Logging ===');
+  logger.info('DEMO', '=== Demostración del Sistema de Logging ===');
   
   setupEnvironmentLogging();
   exampleComponentLogging();
@@ -184,5 +178,5 @@ export function demonstrateLoggingSystem() {
   exampleLogLevels();
   exampleDynamicConfiguration();
   
-  console.log('=== Fin de la demostración ===');
+  logger.info('DEMO', '=== Fin de la demostración ===');
 }

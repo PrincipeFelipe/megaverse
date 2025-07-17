@@ -7,27 +7,33 @@ import { validationResult } from 'express-validator';
 
 // Obtener la configuración actual
 export const getReservationConfig = async (req, res) => {  try {
+    console.log('[Config] 🔍 GET /api/config/reservation - Solicitando configuración general');
+    console.log('[Config] 🚨 ADVERTENCIA: Este controlador puede sobrescribir la configuración del logger!');
     const connection = await pool.getConnection();
     const [config] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');
     
     if (config.length === 0) {      // Si no hay configuración, crear una por defecto
+      console.log('[Config] ⚠️ No hay configuración general, creando configuración por defecto...');
       await connection.query(`
         INSERT INTO reservation_config 
         (max_hours_per_reservation, max_reservations_per_user_per_day, min_hours_in_advance, 
         allowed_start_time, allowed_end_time, requires_approval_for_all_day, 
-        normal_fee, maintenance_fee, entrance_fee, allow_consecutive_reservations, min_time_between_reservations) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [4, 1, 0, '08:00', '22:00', 1, 30, 15, 50, 1, 0]);
+        normal_fee, maintenance_fee, entrance_fee, allow_consecutive_reservations, min_time_between_reservations,
+        logger_enabled, logger_level, logger_modules) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [4, 1, 0, '08:00', '22:00', 1, 30, 15, 50, 1, 0, 0, 'info', null]);
       
       const [defaultConfig] = await connection.query('SELECT * FROM reservation_config WHERE id = 1');
       connection.release();
+      console.log('[Config] ✅ Configuración por defecto creada (logger_enabled = 0 - DESACTIVADO)');
       return res.status(200).json({ config: defaultConfig[0] });
     }
     connection.release();
     
+    console.log('[Config] ✅ Configuración general obtenida (logger_enabled =', config[0].logger_enabled, ')');
     res.status(200).json({ config: config[0] });
   } catch (error) {
-    console.error('Error al obtener la configuración de reservas:', error);
+    console.error('[Config] ❌ Error al obtener la configuración de reservas:', error);
     res.status(500).json({ error: 'Error al obtener la configuración de reservas' });
   }
 };
@@ -56,7 +62,11 @@ export const updateReservationConfig = async (req, res) => {
       maintenance_fee,
       entrance_fee,
       allow_consecutive_reservations,
-      min_time_between_reservations
+      min_time_between_reservations,
+      // Campos del logger
+      logger_enabled,
+      logger_level,
+      logger_modules
     } = req.body;
     
     // Construir objeto para actualización con solo los campos proporcionados
@@ -118,6 +128,22 @@ export const updateReservationConfig = async (req, res) => {
     if (min_time_between_reservations !== undefined) {
       updateFields.push('min_time_between_reservations = ?');
       updateValues.push(min_time_between_reservations);
+    }
+    
+    // Campos del logger
+    if (logger_enabled !== undefined) {
+      updateFields.push('logger_enabled = ?');
+      updateValues.push(logger_enabled ? 1 : 0);
+    }
+    
+    if (logger_level !== undefined) {
+      updateFields.push('logger_level = ?');
+      updateValues.push(logger_level);
+    }
+    
+    if (logger_modules !== undefined) {
+      updateFields.push('logger_modules = ?');
+      updateValues.push(logger_modules);
     }
     
     // Si no hay campos para actualizar, devolver error

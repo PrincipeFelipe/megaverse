@@ -31,7 +31,7 @@ export interface LogEntry {
 
 class Logger {
   private config: LogConfig = {
-    enabled: true,
+    enabled: false, // Comenzar desactivado hasta cargar configuración de BD
     level: LogLevel.INFO,
     enabledModules: [],
     disabledModules: [],
@@ -42,12 +42,153 @@ class Logger {
 
   private logHistory: LogEntry[] = [];
   private maxHistorySize = 1000;
+  private localStorageKey = 'logger-config';
+
+  constructor() {
+    // Cargar configuración desde la base de datos al inicializar
+    this.loadConfigFromDB();
+  }
+
+  /**
+   * Cargar configuración desde la base de datos
+   */
+  private async loadConfigFromDB(): Promise<void> {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/logger/config', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.config) {
+          this.config = {
+            enabled: data.config.enabled,
+            level: this.mapLogLevel(data.config.level),
+            enabledModules: data.config.moduleFilters || [],
+            disabledModules: [],
+            showTimestamp: true,
+            showModule: true,
+            colors: true
+          };
+          // Log eliminado para evitar console.log sueltos - la configuración se puede verificar desde LoggerControlPanel
+        }
+      } else if (response.status === 401 || response.status === 403) {
+        console.warn('⚠️ Sin permisos para acceder a la configuración del logger, usando localStorage');
+        this.loadConfigFromLocalStorage();
+      } else {
+        console.warn('⚠️ Error al cargar configuración del logger desde DB, usando localStorage');
+        this.loadConfigFromLocalStorage();
+      }
+    } catch (error) {
+      console.warn('⚠️ Error al cargar configuración del logger desde DB, usando localStorage:', error);
+      this.loadConfigFromLocalStorage();
+    }
+  }
+
+  // Mapear string level a LogLevel enum
+  private mapLogLevel(level: string): LogLevel {
+    const levelMap: { [key: string]: LogLevel } = {
+      'error': LogLevel.ERROR,
+      'warn': LogLevel.WARN,
+      'info': LogLevel.INFO,
+      'debug': LogLevel.DEBUG,
+      'verbose': LogLevel.VERBOSE
+    };
+    return levelMap[level] || LogLevel.INFO;
+  }
+
+  // Mapear LogLevel enum a string
+  private mapLogLevelToString(level: LogLevel): string {
+    const levelMap: { [key in LogLevel]: string } = {
+      [LogLevel.ERROR]: 'error',
+      [LogLevel.WARN]: 'warn',
+      [LogLevel.INFO]: 'info',
+      [LogLevel.DEBUG]: 'debug',
+      [LogLevel.VERBOSE]: 'verbose'
+    };
+    return levelMap[level];
+  }
+
+  /**
+   * Cargar configuración desde localStorage (fallback)
+   */
+  private loadConfigFromLocalStorage(): void {
+    try {
+      const savedConfig = localStorage.getItem(this.localStorageKey);
+      if (savedConfig) {
+        const parsedConfig = JSON.parse(savedConfig);
+        this.config = { ...this.config, ...parsedConfig };
+        // Log eliminado para evitar console.log sueltos - la configuración se puede verificar desde LoggerControlPanel
+      }
+    } catch (error) {
+      console.warn('⚠️ Error al cargar configuración del logger desde localStorage:', error);
+    }
+  }
+
+  /**
+   * Guardar configuración en la base de datos
+   */
+  private async saveConfigToDB(): Promise<void> {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/logger/config', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enabled: this.config.enabled,
+          level: this.mapLogLevelToString(this.config.level),
+          moduleFilters: this.config.enabledModules
+        })
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          console.warn('⚠️ Sin permisos para guardar configuración del logger en DB, usando localStorage');
+        } else {
+          console.error('❌ Error al guardar configuración del logger en DB');
+        }
+        // Fallback a localStorage
+        this.saveConfigToLocalStorage();
+      }
+    } catch (error) {
+      console.error('❌ Error al comunicarse con la API para guardar configuración del logger:', error);
+      // Fallback a localStorage
+      this.saveConfigToLocalStorage();
+    }
+  }
+
+  /**
+   * Guardar configuración en localStorage (fallback)
+   */
+  private saveConfigToLocalStorage(): void {
+    try {
+      localStorage.setItem(this.localStorageKey, JSON.stringify(this.config));
+    } catch (error) {
+      console.warn('Error al guardar configuración del logger en localStorage:', error);
+    }
+  }
 
   /**
    * Configurar el logger
    */
   configure(config: Partial<LogConfig>): void {
     this.config = { ...this.config, ...config };
+    this.saveConfigToDB(); // Guardar automáticamente cuando se configure
+  }
+
+  /**
+   * Configurar el logger SIN guardar automáticamente (para cargar desde BD)
+   */
+  configureWithoutSaving(config: Partial<LogConfig>): void {
+    this.config = { ...this.config, ...config };
+    // NO llamar a saveConfigToDB() para evitar sobrescribir la BD
   }
 
   /**
@@ -55,6 +196,7 @@ class Logger {
    */
   setEnabled(enabled: boolean): void {
     this.config.enabled = enabled;
+    this.saveConfigToDB(); // Guardar cuando se cambie el estado
   }
 
   /**
@@ -62,6 +204,7 @@ class Logger {
    */
   setLevel(level: LogLevel): void {
     this.config.level = level;
+    this.saveConfigToDB();
   }
 
   /**
@@ -69,6 +212,7 @@ class Logger {
    */
   enableModules(...modules: string[]): void {
     this.config.enabledModules = [...this.config.enabledModules, ...modules];
+    this.saveConfigToDB();
   }
 
   /**
@@ -76,6 +220,7 @@ class Logger {
    */
   disableModules(...modules: string[]): void {
     this.config.disabledModules = [...this.config.disabledModules, ...modules];
+    this.saveConfigToDB();
   }
 
   /**
@@ -84,6 +229,7 @@ class Logger {
   clearModuleFilters(): void {
     this.config.enabledModules = [];
     this.config.disabledModules = [];
+    this.saveConfigToDB();
   }
 
   /**
@@ -242,6 +388,33 @@ class Logger {
   }
 
   /**
+   * Resetear configuración a valores por defecto
+   */
+  resetConfig(): void {
+    this.config = {
+      enabled: true,
+      level: LogLevel.INFO,
+      enabledModules: [],
+      disabledModules: [],
+      showTimestamp: true,
+      showModule: true,
+      colors: true
+    };
+    this.saveConfigToDB();
+  }
+
+  /**
+   * Limpiar configuración guardada en localStorage
+   */
+  clearSavedConfig(): void {
+    try {
+      localStorage.removeItem(this.localStorageKey);
+    } catch (error) {
+      console.warn('Error al limpiar configuración guardada:', error);
+    }
+  }
+
+  /**
    * Exportar logs como JSON
    */
   exportLogs(): string {
@@ -270,24 +443,9 @@ class Logger {
 // Instancia singleton del logger
 const logger = new Logger();
 
-// Configuración según el entorno
-if (import.meta.env.MODE === 'development') {
-  logger.configure({
-    enabled: true,
-    level: LogLevel.DEBUG,
-    showTimestamp: true,
-    showModule: true,
-    colors: true
-  });
-} else if (import.meta.env.MODE === 'production') {
-  logger.configure({
-    enabled: true,
-    level: LogLevel.WARN, // Solo warnings y errores en producción
-    showTimestamp: false,
-    showModule: false,
-    colors: false
-  });
-}
+// NOTA: No configurar automáticamente aquí para evitar sobrescribir configuración de BD
+// La configuración debe venir desde la base de datos o ser establecida explícitamente por el usuario
+// Usar la configuración por defecto del constructor hasta que se cargue desde BD
 
 export { logger };
 export default logger;

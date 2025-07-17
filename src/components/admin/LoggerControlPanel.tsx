@@ -10,12 +10,70 @@ export const LoggerControlPanel: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<LogLevel>(LogLevel.INFO);
   const [selectedModule, setSelectedModule] = useState<string>('');
   const [lastAction, setLastAction] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  // Cargar configuración desde la base de datos
+  const loadConfigFromDB = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/logger/config', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.config) {
+          // Usar configureWithoutSaving para evitar sobrescribir la BD
+          const loggerConfig = {
+            enabled: data.config.enabled,
+            level: data.config.level === 'error' ? LogLevel.ERROR :
+                   data.config.level === 'warn' ? LogLevel.WARN :
+                   data.config.level === 'info' ? LogLevel.INFO :
+                   data.config.level === 'debug' ? LogLevel.DEBUG :
+                   data.config.level === 'verbose' ? LogLevel.VERBOSE : LogLevel.INFO,
+            enabledModules: data.config.moduleFilters || [],
+            disabledModules: [],
+            showTimestamp: true,
+            showModule: true,
+            colors: true
+          };
+          
+          logger.configureWithoutSaving(loggerConfig);
+          setConfig(logger.getConfig());
+          setLastAction('🔄 Configuración cargada desde DB (sin guardar)');
+        }
+      } else if (response.status === 401 || response.status === 403) {
+        logger.warn('LOGGER_PANEL', 'Sin permisos para acceder a la configuración del logger, usando configuración local');
+        setLastAction('⚠️ Sin permisos para DB, usando configuración local');
+        setConfig(logger.getConfig());
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      logger.error('LOGGER_PANEL', 'Error al cargar configuración del logger desde DB', error);
+      setLastAction('❌ Error al cargar desde DB, usando configuración local');
+      // Cargar configuración local como fallback
+      setConfig(logger.getConfig());
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Actualizar logs cada segundo
+    // Cargar configuración desde DB al inicializar
+    loadConfigFromDB();
+    setLogs(logger.getHistory().slice(-50));
+  }, []);
+
+  useEffect(() => {
+    // Actualizar logs cada segundo PERO NO la configuración
     const interval = setInterval(() => {
       setLogs(logger.getHistory().slice(-50)); // Últimos 50 logs
-      setConfig(logger.getConfig());
+      // Comentado para evitar actualizaciones constantes que disparan saveConfigToDB
+      // setConfig(logger.getConfig());
     }, 1000);
 
     return () => clearInterval(interval);
@@ -99,6 +157,20 @@ export const LoggerControlPanel: React.FC = () => {
   const clearLogs = () => {
     logger.clearHistory();
     setLogs([]);
+    setLastAction('Historial de logs limpiado');
+    setTimeout(() => setLastAction(''), 3000);
+  };
+
+  const resetConfig = () => {
+    logger.resetConfig();
+    setConfig(logger.getConfig());
+    setLastAction('🔄 Configuración restablecida a valores por defecto');
+    setTimeout(() => setLastAction(''), 4000);
+  };
+
+  const reloadFromDB = async () => {
+    setLastAction('🔄 Recargando configuración desde DB...');
+    await loadConfigFromDB();
   };
 
   const exportLogs = () => {
@@ -242,6 +314,12 @@ export const LoggerControlPanel: React.FC = () => {
             </Button>
             <Button onClick={exportLogs} size="sm" variant="outline">
               Exportar Logs
+            </Button>
+            <Button onClick={resetConfig} size="sm" variant="outline">
+              Resetear Configuración
+            </Button>
+            <Button onClick={reloadFromDB} size="sm" variant="outline" disabled={loading}>
+              {loading ? '🔄 Cargando...' : '📡 Recargar desde DB'}
             </Button>
           </div>
         </div>
