@@ -14,6 +14,15 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8090',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   build: {
     // Evita la división de código que pueda llevar a cargar fingerprint.js
     rollupOptions: {
